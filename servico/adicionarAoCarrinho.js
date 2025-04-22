@@ -4,7 +4,6 @@ export async function adicionarAoCarrinho(req, res) {
     const { id_cliente, ingredientes, quantidade } = req.body;
 
     try {
-        // Buscar preços dos ingredientes
         const [dados] = await pool.query(
             `SELECT id_ingrediente, valor FROM ingredientes WHERE id_ingrediente IN (?)`,
             [ingredientes]
@@ -13,7 +12,6 @@ export async function adicionarAoCarrinho(req, res) {
         const valor_total_unitario = dados.reduce((total, item) => total + Number(item.valor), 0);
         const valor_total = valor_total_unitario * quantidade;
 
-        // Inserir pedido no carrinho
         const [result] = await pool.query(
             `INSERT INTO pedidosCarrinho (id_cliente, valor_total, quantidade) VALUES (?, ?, ?)`,
             [id_cliente, valor_total, quantidade]
@@ -21,7 +19,6 @@ export async function adicionarAoCarrinho(req, res) {
 
         const id_pedido = result.insertId;
 
-        // Associar ingredientes
         for (const id_ingrediente of ingredientes) {
             await pool.query(
                 `INSERT INTO pedidosCarrinho_ingredientes (id_pedido_carrinho, id_ingrediente) VALUES (?, ?)`,
