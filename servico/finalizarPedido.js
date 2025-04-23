@@ -4,7 +4,6 @@ export async function finalizarPedido(req, res) {
     const { id_cliente } = req.body;
 
     try {
-        // 1. Buscar os pedidos no carrinho do cliente
         const [pedidosCarrinho] = await pool.query(
             `SELECT * FROM pedidosCarrinho WHERE id_cliente = ?`,
             [id_cliente]
@@ -12,17 +11,14 @@ export async function finalizarPedido(req, res) {
 
         const listaPedidos = [];
 
-        // 2. Iterar sobre cada pedido no carrinho
         for (const pedido of pedidosCarrinho) {
-            // Criar pedido na tabela 'pedidos'
             const [pedidoResult] = await pool.query(
-                `INSERT INTO pedidos (id_cliente, valor_total, status) VALUES (?, ?, 'aguardando')`,  // Ajustando o status para 'aguardando'
+                `INSERT INTO pedidos (id_cliente, valor_total, status) VALUES (?, ?, 'aguardando')`,
                 [id_cliente, pedido.valor_total]
             );
 
             const id_novo_pedido = pedidoResult.insertId;
 
-            // 3. Buscar os ingredientes associados a este pedido no carrinho
             const [ingredientes] = await pool.query(
                 `SELECT ci.id_ingrediente, p.quantidade
                  FROM pedidosCarrinho_ingredientes ci
@@ -31,15 +27,13 @@ export async function finalizarPedido(req, res) {
                 [pedido.id_pedido_carrinho]
             );
 
-            // 4. Inserir ingredientes no novo pedido
             for (const item of ingredientes) {
                 await pool.query(
                     `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)`,
-                    [id_novo_pedido, item.id_ingrediente, item.quantidade]  // Usando a quantidade do carrinho
+                    [id_novo_pedido, item.id_ingrediente, item.quantidade]
                 );
             }
 
-            // 5. Remover os itens do carrinho
             await pool.query(`DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?`, [pedido.id_pedido_carrinho]);
             await pool.query(`DELETE FROM pedidosCarrinho WHERE id_pedido_carrinho = ?`, [pedido.id_pedido_carrinho]);
 

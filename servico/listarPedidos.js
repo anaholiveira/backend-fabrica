@@ -2,20 +2,19 @@ import pool from './conexao.js';
 
 export async function listarPedidosAdmin(req, res) {
     try {
-        const { filtro } = req.query; // Pode ser 'aguardando' ou 'finalizados'
-        
-        let query = `
+        const { filtro } = req.query;
+
+        const query = `
             SELECT 
-                p.id_pedido, 
-                p.data_criacao, 
-                c.email AS email_cliente, 
-                p.valor_total, 
-                p.forma_pagamento, 
+                p.id_pedido,
+                p.data_criacao,
+                c.email AS email_cliente,
+                p.valor_total,
+                p.forma_pagamento,
                 p.status,
-                MAX(CASE WHEN i.tipo = 'tamanho' THEN i.nome END) AS tamanho,
-                MAX(CASE WHEN i.tipo = 'recheio' THEN i.nome END) AS recheio,
-                MAX(CASE WHEN i.tipo = 'cobertura' THEN i.nome END) AS cobertura,
-                MAX(CASE WHEN i.tipo = 'cor_cobertura' THEN i.nome END) AS cor_cobertura,
+                i.tipo,
+                i.nome AS nome_ingrediente,
+                pi.quantidade,
                 e.rua, 
                 e.numero, 
                 e.bairro, 
@@ -26,41 +25,55 @@ export async function listarPedidosAdmin(req, res) {
             JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
             JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
             LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
-            WHERE p.status = 'aguardando'
+            WHERE p.status = ?
+            ORDER BY p.id_pedido, pi.id_pedido_ingrediente
         `;
 
-        if (filtro === 'finalizados') {
-            query = `
-                SELECT 
-                    p.id_pedido, 
-                    p.data_criacao, 
-                    c.email AS email_cliente, 
-                    p.valor_total, 
-                    p.forma_pagamento, 
-                    p.status,
-                    MAX(CASE WHEN i.tipo = 'tamanho' THEN i.nome END) AS tamanho,
-                    MAX(CASE WHEN i.tipo = 'recheio' THEN i.nome END) AS recheio,
-                    MAX(CASE WHEN i.tipo = 'cobertura' THEN i.nome END) AS cobertura,
-                    MAX(CASE WHEN i.tipo = 'cor_cobertura' THEN i.nome END) AS cor_cobertura,
-                    e.rua, 
-                    e.numero, 
-                    e.bairro, 
-                    e.cep, 
-                    e.complemento
-                FROM pedidos p
-                JOIN clientes c ON p.id_cliente = c.id_cliente
-                JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
-                JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-                LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
-                WHERE p.status = 'finalizado'
-                GROUP BY p.id_pedido, e.rua, e.numero, e.bairro, e.cep, e.complemento
-            `;
-        } else {
-            query += ` GROUP BY p.id_pedido, e.rua, e.numero, e.bairro, e.cep, e.complemento`;
+        const [rows] = await pool.query(query, [filtro || 'aguardando']);
+
+        const pedidosMap = new Map();
+
+        for (const row of rows) {
+            const keyPedido = row.id_pedido;
+
+            if (!pedidosMap.has(keyPedido)) {
+                pedidosMap.set(keyPedido, {
+                    id_pedido: row.id_pedido,
+                    data_criacao: row.data_criacao,
+                    email_cliente: row.email_cliente,
+                    valor_total: row.valor_total,
+                    forma_pagamento: row.forma_pagamento,
+                    status: row.status,
+                    rua: row.rua,
+                    numero: row.numero,
+                    bairro: row.bairro,
+                    cep: row.cep,
+                    complemento: row.complemento,
+                    cupcakes: []
+                });
+            }
+
+            const pedido = pedidosMap.get(keyPedido);
+
+            let cupcake = pedido.cupcakes.find(c => 
+                !c.tamanho || !c.recheio || !c.cobertura || !c.cor_cobertura
+            );
+
+            if (!cupcake) {
+                cupcake = {
+                    tamanho: null,
+                    recheio: null,
+                    cobertura: null,
+                    cor_cobertura: null,
+                    quantidade: row.quantidade
+                };
+                pedido.cupcakes.push(cupcake);
+            }
+
+            cupcake[row.tipo] = row.nome_ingrediente;
         }
 
-        const [rows] = await pool.query(query);
-        const pedidosFormatados = rows.map(pedido => {
+        const pedidosFormatados = Array.from(pedidosMap.values()).map(pedido => {
             const data = new Date(pedido.data_criacao);
             const dataFormatada = data.toLocaleString('pt-BR', {
                 day: '2-digit',
@@ -77,7 +90,6 @@ export async function listarPedidosAdmin(req, res) {
         });
 
         res.json(pedidosFormatados);
-
     } catch (error) {
         console.error('Erro ao buscar pedidos:', error);
         res.status(500).json({ mensagem: 'Erro ao buscar pedidos' });
