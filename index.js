@@ -21,24 +21,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-//Priscila clientes
 app.post('/cadastrarCliente', cadastrarCliente);
 app.get('/clientes', listarClientes);
 app.post('/login', loginCliente);
 
-//Priscila admin
 app.get('/admin/pedidos', listarPedidosAdmin);
 app.put('/admin/pedidos/:id', atualizarStatusPedido);
 
-//Ana Gabriely Pedido
 app.get('/buscarIngredientes', buscarIngredientes);
 app.post('/adicionarAoCarrinho', adicionarAoCarrinho);
 app.get('/carrinho/:id_cliente', listarCarrinho);
 app.post('/finalizarPedido', finalizarPedido);
 app.post('/fazerPedidoDireto', fazerPedidoDireto);
 
-
-//Leticia Chekout
 app.get('/resumo/:idCliente', async (req, res) => {
     const { idCliente } = req.params;
 
@@ -51,8 +46,6 @@ app.get('/resumo/:idCliente', async (req, res) => {
     }
 });
 
-
-//Isabella Endereço
 app.post('/endereco', async (req, res) => {
     try {
         const novoEndereco = req.body;
@@ -72,81 +65,92 @@ app.get('/enderecos', async (req, res) => {
     }
 });
 
+function formatarDataHora(data) {
+  const options = { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit', 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    second: '2-digit',
+    hour12: false
+  };
+  const novaData = new Date(data); 
+  return novaData.toLocaleString('pt-BR', options); 
+}
 
-//Rotas para Ingredientes - Thamylla e Isabella
-//Listar ingredientes por tipo
 app.get('/ingredientes/:tipo', async (req, res) => {
-    const { tipo } = req.params;
-    try {
-      const ingredientes = await listarIngredientesPorTipo(tipo);
-      res.json(ingredientes);
-    } catch (error) {
-      res.status(400).json({ erro: error.message });
-    }
+  const { tipo } = req.params;
+  try {
+    const ingredientes = await listarIngredientesPorTipo(tipo);
+    res.json(ingredientes);
+  } catch (error) {
+    res.status(400).json({ erro: error.message });
+  }
 });
-  
-  //Adicionar novo ingrediente
+
 app.post('/ingredientes', async (req, res) => {
-    const { nome, tipo, valor } = req.body;
-    try {
-      const novo = await adicionarIngrediente({ nome, tipo, valor });
-      res.status(201).json(novo);
-    } catch (error) {
-      res.status(400).json({ erro: error.message });
-    }
+  const { nome, tipo, valor } = req.body;
+  try {
+    const novo = await adicionarIngrediente({ nome, tipo, valor });
+    res.status(201).json(novo);
+  } catch (error) {
+    res.status(400).json({ erro: error.message });
+  }
 });
-  
-//Excluir ingrediente por id
+
 app.delete('/ingredientes/:id', async (req, res) => {
-    const { id } = req.params;
-    try {
-      const sucesso = await excluirIngrediente(id);
-      if (sucesso) {
-        res.json({ mensagem: 'Ingrediente excluído com sucesso' });
-      } else {
-        res.status(404).json({ erro: 'Ingrediente não encontrado' });
-      }
-    } catch (error) {
-      res.status(500).json({ erro: 'Erro ao excluir ingrediente' });
+  const { id } = req.params;
+  try {
+    const sucesso = await excluirIngrediente(id);
+    if (sucesso) {
+      res.json({ mensagem: 'Ingrediente excluído com sucesso' });
+    } else {
+      res.status(404).json({ erro: 'Ingrediente não encontrado' });
     }
-  });
-  
+  } catch (error) {
+    res.status(500).json({ erro: 'Erro ao excluir ingrediente' });
+  }
+});
 
-//Thamylla Feedback
-//Listar feedbacks
 app.get('/feedbacks', async (req, res) => {
-    try {
+  try {
     const feedbacks = await listarFeedbacks();
-    res.json(feedbacks);
-    } catch (error) {
+    
+    const feedbacksFormatados = feedbacks.map(feedback => {
+      const dataFormatada = formatarDataHora(feedback.data_criacao); 
+      return {
+        ...feedback,
+        data_criacao: dataFormatada 
+      };
+    });
+
+    res.json(feedbacksFormatados);
+  } catch (error) {
     res.status(400).json({ erro: error.message });
-    }
+  }
 });
 
-//Adicionar feedback
 app.post('/feedbacks', async (req, res) => {
-    const { id_cliente, estrelas, comentario, foto } = req.body;
-    try {
+  const { id_cliente, estrelas, comentario, foto } = req.body;
+  try {
     const novoFeedback = await adicionarFeedback({ id_cliente, estrelas, comentario, foto });
-    res.status(201).json({ id_feedback: novoFeedback });
-    } catch (error) {
-    res.status(400).json({ erro: error.message });
-    }
+    res.status(201).json({ mensagem: 'Feedback adicionado com sucesso' });
+  } catch (error) {
+    res.status(400).json({ erro: 'Não foi possível cadastrar o feedback' });
+  }
 });
 
-//Excluir feedback
 app.delete('/feedbacks/:id', async (req, res) => {
-    const { id } = req.params;
-    try {
+  const { id } = req.params;
+  try {
     await excluirFeedback(id);
     res.json({ mensagem: 'Feedback excluído com sucesso' });
-    } catch (error) {
+  } catch (error) {
     res.status(500).json({ erro: 'Erro ao excluir feedback' });
-    }
+  }
 });
 
-
-
 app.listen(9000, () => {
-    console.log(`Servidor rodando em http://localhost:9000`);
+  console.log(`Servidor rodando em http://localhost:9000`);
 });
