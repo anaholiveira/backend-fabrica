@@ -69,7 +69,6 @@ export async function listarPedidosAdmin(req, res) {
                 };
                 pedido.cupcakes.push(cupcake);
             }
-
             cupcake[row.tipo] = row.nome_ingrediente;
         }
 

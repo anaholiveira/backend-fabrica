@@ -22,8 +22,8 @@ app.use(cors());
 app.use(express.json());
 
 //Priscila clientes
-app.get('/clientes', listarClientes);
 app.post('/cadastrarCliente', cadastrarCliente);
+app.get('/clientes', listarClientes);
 app.post('/login', loginCliente);
 
 //Priscila admin
