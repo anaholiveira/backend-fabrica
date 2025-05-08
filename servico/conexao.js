@@ -1,4 +1,4 @@
-import mysql from 'mysql2/promise'
+import mysql from 'mysql2/promise';
 
 const pool = mysql.createPool({
     host: 'ss04ggwskkwc0ksgcookg48w',

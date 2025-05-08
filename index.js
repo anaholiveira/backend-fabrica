@@ -15,6 +15,7 @@ import { getResumoPedido } from './servico/resumo.js';
 import { adicionarEndereco, listarEnderecos } from './servico/endereco.js';
 import { listarIngredientesPorTipo, adicionarIngrediente, excluirIngrediente } from './servico/ingredienteServico.js';
 import { listarFeedbacks, adicionarFeedback, excluirFeedback } from './servico/feedbackServico.js';
+import { relatorioPedidos } from './servico/relatorio.js';
 
 dotenv.config();
 const app = express();
@@ -33,6 +34,8 @@ app.post('/adicionarAoCarrinho', adicionarAoCarrinho);
 app.get('/carrinho/:id_cliente', listarCarrinho);
 app.post('/finalizarPedido', finalizarPedido);
 app.post('/fazerPedidoDireto', fazerPedidoDireto);
+
+app.get('/relatorio', relatorioPedidos);
 
 app.get('/resumo/:idCliente', async (req, res) => {
     const { idCliente } = req.params;
