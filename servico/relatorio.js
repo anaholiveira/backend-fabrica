@@ -33,10 +33,17 @@ export async function relatorioPedidos(req, res) {
             return res.status(404).json({ mensagem: 'Nenhum pedido encontrado no intervalo informado.' });
         }
 
-        res.status(200).json(linhas);
+        const pedidosFormatados = linhas.map(pedido => {
+            return {
+                ...pedido,
+                data_criacao: new Date(pedido.data_criacao).toISOString().split('T')[0]
+            };
+        });
+
+        res.status(200).json(pedidosFormatados);
 
     } catch (erro) {
         console.error('Erro ao gerar relatório:', erro);
-        res.status(500).json({ erro: 'Erro interno no servidor.' });
-    }
+        res.status(500).json({ erro: 'Erro interno no servidor.' });
+    }
 }

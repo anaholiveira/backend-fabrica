@@ -147,8 +147,12 @@ app.post('/feedbacks', async (req, res) => {
 app.delete('/feedbacks/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    await excluirFeedback(id);
-    res.json({ mensagem: 'Feedback excluído com sucesso' });
+    const sucesso = await excluirFeedback(id);
+    if (sucesso) {
+      res.json({ mensagem: 'Feedback excluído com sucesso' });
+    } else {
+      res.status(404).json({ erro: 'Feedback não encontrado' });
+    }
   } catch (error) {
     res.status(500).json({ erro: 'Erro ao excluir feedback' });
   }

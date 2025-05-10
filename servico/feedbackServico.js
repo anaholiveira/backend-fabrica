@@ -21,7 +21,8 @@ async function adicionarFeedback({ id_cliente, estrelas, comentario, foto }) {
 
 async function excluirFeedback(id_feedback) {
     const comando = 'DELETE FROM feedbacks WHERE id_feedback = ?';
-    await pool.execute(comando, [id_feedback]);
+    const [resultado] = await pool.execute(comando, [id_feedback]);
+    return resultado.affectedRows > 0;
 }
 
 export { listarFeedbacks, adicionarFeedback, excluirFeedback };
