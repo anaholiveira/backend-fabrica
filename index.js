@@ -38,15 +38,18 @@ app.post('/fazerPedidoDireto', fazerPedidoDireto);
 app.get('/relatorio', relatorioPedidos);
 
 app.get('/resumo/:idCliente', async (req, res) => {
-    const { idCliente } = req.params;
+  const { idCliente } = req.params;
 
-    try {
-        const resumo = await getResumoPedido(idCliente);
-        res.json(resumo);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ erro: 'Erro ao buscar resumo do pedido' });
-    }
+  if (isNaN(idCliente) || idCliente <= 0) {
+    return res.status(400).json({ erro: 'ID de cliente inválido. Deve ser um número maior que 0.' });
+  }
+
+  try {
+    const resumo = await getResumoPedido(idCliente);
+    res.json(resumo);
+  } catch (error) {
+    res.status(400).json({ erro: error.message });
+  }
 });
 
 app.post('/endereco', async (req, res) => {

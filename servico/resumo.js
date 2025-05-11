@@ -2,6 +2,15 @@ import pool from './conexao.js';
 
 export async function getResumoPedido(idCliente) {
   try {
+    if (isNaN(idCliente) || idCliente <= 0) {
+      throw new Error('ID de cliente inválido. Deve ser um número maior que 0.');
+    }
+
+    const [cliente] = await pool.query('SELECT id_cliente FROM clientes WHERE id_cliente = ?', [idCliente]);
+    if (cliente.length === 0) {
+      return { erro: 'Cliente não encontrado.' };
+    }
+
     const [rows] = await pool.query(`
       SELECT
         SUM(i.valor * pi.quantidade) AS subtotal,
@@ -23,7 +32,7 @@ export async function getResumoPedido(idCliente) {
     return { quantidade, subtotal, taxaServico, taxaEntrega, total };
     
   } catch (error) {
-    console.error('Erro ao buscar resumo do pedido:', error);
+    console.error('Erro inesperado:', error);
     throw error;
   }
 }
