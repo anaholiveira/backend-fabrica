@@ -9,6 +9,7 @@ export async function listarPedidosAdmin(req, res) {
                 p.id_pedido,
                 p.data_criacao,
                 c.email AS email_cliente,
+                c.nome_completo,
                 p.valor_total,
                 p.forma_pagamento,
                 p.status,
@@ -41,6 +42,7 @@ export async function listarPedidosAdmin(req, res) {
                     id_pedido: row.id_pedido,
                     data_criacao: row.data_criacao,
                     email_cliente: row.email_cliente,
+                    nome_completo: row.nome_completo,
                     valor_total: row.valor_total,
                     forma_pagamento: row.forma_pagamento,
                     status: row.status,
@@ -55,10 +57,12 @@ export async function listarPedidosAdmin(req, res) {
 
             const pedido = pedidosMap.get(keyPedido);
 
+            // Verifica se existe um cupcake incompleto (sem os 4 tipos ainda)
             let cupcake = pedido.cupcakes.find(c => 
                 !c.tamanho || !c.recheio || !c.cobertura || !c.cor_cobertura
             );
 
+            // Se não existe, cria um novo
             if (!cupcake) {
                 cupcake = {
                     tamanho: null,
@@ -69,9 +73,12 @@ export async function listarPedidosAdmin(req, res) {
                 };
                 pedido.cupcakes.push(cupcake);
             }
+
+            // Atribui o ingrediente ao tipo correto
             cupcake[row.tipo] = row.nome_ingrediente;
         }
 
+        // Formatando a data
         const pedidosFormatados = Array.from(pedidosMap.values()).map(pedido => {
             const data = new Date(pedido.data_criacao);
             const dataFormatada = data.toLocaleString('pt-BR', {
