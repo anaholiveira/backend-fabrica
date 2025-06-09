@@ -3,9 +3,9 @@ import pool from './conexao.js';
 
 export async function cadastrarCliente(req, res) {
     try {
-        const { nome_completo, email, senha, cpf } = req.body;
+        const { email, senha, cpf } = req.body;
 
-        if (!nome_completo || !email || !senha || !cpf) {
+        if (!email || !senha || !cpf) {
             return res.status(400).json({ mensagem: 'Preencha todos os campos obrigatórios!' });
         }
 
@@ -27,8 +27,8 @@ export async function cadastrarCliente(req, res) {
         const senhaHash = await bcrypt.hash(senha, 10);
 
         await pool.query(
-            'INSERT INTO clientes (nome_completo, email, senha, cpf) VALUES (?, ?, ?, ?)',
-            [nome_completo, email, senhaHash, cpf]
+            'INSERT INTO clientes (email, senha, cpf) VALUES (?, ?, ?)',
+            [email, senhaHash, cpf]
         );
 
         res.status(201).json({ mensagem: 'Conta criada com sucesso!' });
