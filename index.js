@@ -122,7 +122,6 @@ app.delete('/ingredientes/:id', async (req, res) => {
 app.get('/feedbacks', async (req, res) => {
   try {
     const feedbacks = await listarFeedbacks();
-    
     const feedbacksFormatados = feedbacks.map(feedback => {
       const dataFormatada = formatarDataHora(feedback.data_criacao); 
       return {
@@ -130,7 +129,6 @@ app.get('/feedbacks', async (req, res) => {
         data_criacao: dataFormatada 
       };
     });
-
     res.json(feedbacksFormatados);
   } catch (error) {
     res.status(400).json({ erro: error.message });
@@ -141,7 +139,7 @@ app.post('/feedbacks', async (req, res) => {
   const { id_cliente, estrelas, comentario, foto } = req.body;
   try {
     const novoFeedback = await adicionarFeedback({ id_cliente, estrelas, comentario, foto });
-    res.status(201).json({ mensagem: 'Feedback adicionado com sucesso' });
+    res.status(201).json({ id: novoFeedback.id || novoFeedback, mensagem: 'Feedback adicionado com sucesso' });
   } catch (error) {
     res.status(400).json({ erro: 'Não foi possível cadastrar o feedback' });
   }
