@@ -16,6 +16,7 @@ import { adicionarEndereco, listarEnderecos } from './servico/endereco.js';
 import { listarIngredientesPorTipo, adicionarIngrediente, excluirIngrediente } from './servico/ingredienteServico.js';
 import { listarFeedbacks, adicionarFeedback, excluirFeedback } from './servico/feedbackServico.js';
 import { relatorioPedidos } from './servico/relatorio.js';
+import { apagarPedidosAguardando } from './servico/resumo.js';
 
 dotenv.config();
 const app = express();
