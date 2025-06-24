@@ -52,6 +52,21 @@ app.get('/resumo/:idCliente', async (req, res) => {
   }
 });
 
+app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
+  const { idCliente } = req.params;
+
+  if (isNaN(idCliente) || idCliente <= 0) {
+    return res.status(400).json({ erro: 'ID de cliente inválido. Deve ser um número maior que 0.' });
+  }
+
+  try {
+    const resultado = await apagarPedidosAguardando(idCliente);
+    res.json(resultado);
+  } catch (error) {
+    res.status(400).json({ erro: error.message });
+  }
+});
+
 app.post('/endereco', async (req, res) => {
     try {
         const novoEndereco = req.body;

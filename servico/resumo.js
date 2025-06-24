@@ -30,9 +30,37 @@ export async function getResumoPedido(idCliente) {
     const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
 
     return { quantidade, subtotal, taxaServico, taxaEntrega, total };
-    
+
   } catch (error) {
-    console.error('Erro inesperado:', error);
+    console.error('Erro ao obter resumo:', error);
+    throw error;
+  }
+}
+
+export async function apagarPedidosAguardando(idCliente) {
+  try {
+    if (isNaN(idCliente) || idCliente <= 0) {
+      throw new Error('ID de cliente inválido.');
+    }
+
+    const [pedidos] = await pool.query(
+      'SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando"',
+      [idCliente]
+    );
+
+    if (pedidos.length === 0) {
+      return { mensagem: 'Nenhum pedido com status "aguardando" encontrado para este cliente.' };
+    }
+
+    const ids = pedidos.map(p => p.id_pedido);
+
+    await pool.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
+    await pool.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
+
+    return { mensagem: 'Pedidos com status "aguardando" apagados com sucesso.' };
+
+  } catch (error) {
+    console.error('Erro ao apagar pedidos:', error);
     throw error;
   }
 }
