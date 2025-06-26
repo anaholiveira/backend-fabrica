@@ -8,6 +8,7 @@ export async function listarPedidosAdmin(req, res) {
             SELECT 
                 p.id_pedido,
                 p.data_criacao,
+                c.id_cliente,
                 c.email AS email_cliente,
                 c.nome_completo,
                 p.valor_total,
@@ -32,37 +33,41 @@ export async function listarPedidosAdmin(req, res) {
 
         const [rows] = await pool.query(query, [filtro || 'aguardando']);
 
-        const pedidosMap = new Map();
+        const clientesMap = new Map();
 
         for (const row of rows) {
-            const keyPedido = row.id_pedido;
+            const clienteId = row.id_cliente;
 
-            if (!pedidosMap.has(keyPedido)) {
-                pedidosMap.set(keyPedido, {
-                    id_pedido: row.id_pedido,
-                    data_criacao: row.data_criacao,
+            if (!clientesMap.has(clienteId)) {
+                clientesMap.set(clienteId, {
+                    id_cliente: row.id_cliente,
                     email_cliente: row.email_cliente,
                     nome_completo: row.nome_completo,
                     valor_total: row.valor_total,
                     forma_pagamento: row.forma_pagamento,
                     status: row.status,
+                    data_criacao: row.data_criacao,
                     rua: row.rua,
                     numero: row.numero,
                     bairro: row.bairro,
                     cep: row.cep,
                     complemento: row.complemento,
-                    cupcakes: []
+                    cupcakes: [],
+                    ids: [row.id_pedido]
                 });
+            } else {
+                const cliente = clientesMap.get(clienteId);
+                if (!cliente.ids.includes(row.id_pedido)) {
+                    cliente.ids.push(row.id_pedido);
+                }
             }
 
-            const pedido = pedidosMap.get(keyPedido);
+            const cliente = clientesMap.get(clienteId);
 
-            // Verifica se existe um cupcake incompleto (sem os 4 tipos ainda)
-            let cupcake = pedido.cupcakes.find(c => 
+            let cupcake = cliente.cupcakes.find(c =>
                 !c.tamanho || !c.recheio || !c.cobertura || !c.cor_cobertura
             );
 
-            // Se não existe, cria um novo
             if (!cupcake) {
                 cupcake = {
                     tamanho: null,
@@ -71,27 +76,23 @@ export async function listarPedidosAdmin(req, res) {
                     cor_cobertura: null,
                     quantidade: row.quantidade
                 };
-                pedido.cupcakes.push(cupcake);
+                cliente.cupcakes.push(cupcake);
             }
 
-            // Atribui o ingrediente ao tipo correto
             cupcake[row.tipo] = row.nome_ingrediente;
         }
 
-        // Formatando a data
-        const pedidosFormatados = Array.from(pedidosMap.values()).map(pedido => {
-            const data = new Date(pedido.data_criacao);
-            const dataFormatada = data.toLocaleString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-
+        const pedidosFormatados = Array.from(clientesMap.values()).map(cliente => {
+            const data = new Date(cliente.data_criacao);
             return {
-                ...pedido,
-                data_criacao: dataFormatada
+                ...cliente,
+                data_criacao: data.toLocaleString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })
             };
         });
 
