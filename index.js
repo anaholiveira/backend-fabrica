@@ -9,6 +9,7 @@ import { atualizarStatusPedido } from './servico/atualizarStatus.js';
 import { buscarIngredientes } from './servico/buscarIngredientes.js';
 import { adicionarAoCarrinho } from './servico/adicionarAoCarrinho.js';
 import { listarCarrinho } from './servico/listarCarrinho.js';
+import { excluirPedidoCarrinho } from './servico/excluirPedidoCarrinho.js';
 import { finalizarPedido } from './servico/finalizarPedido.js';
 import { fazerPedidoDireto } from './servico/fazerPedidoDireto.js';
 import { getResumoPedido } from './servico/resumo.js';
@@ -33,6 +34,7 @@ app.put('/admin/pedidos/:id', atualizarStatusPedido);
 app.get('/buscarIngredientes', buscarIngredientes);
 app.post('/adicionarAoCarrinho', adicionarAoCarrinho);
 app.get('/carrinho/:id_cliente', listarCarrinho);
+app.delete('/excluirPedidoCarrinho/:id', excluirPedidoCarrinho);
 app.post('/finalizarPedido', finalizarPedido);
 app.post('/fazerPedidoDireto', fazerPedidoDireto);
 
