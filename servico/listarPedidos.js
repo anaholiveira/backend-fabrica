@@ -43,8 +43,8 @@ export async function listarPedidosAdmin(req, res) {
                     id_cliente: row.id_cliente,
                     email_cliente: row.email_cliente,
                     nome_completo: row.nome_completo,
-                    valor_total: row.valor_total,
-                    forma_pagamento: row.forma_pagamento,
+                    valor_total: 0,
+                    forma_pagamento: row.forma_pagamento || null,
                     status: row.status,
                     data_criacao: row.data_criacao,
                     rua: row.rua,
@@ -57,12 +57,19 @@ export async function listarPedidosAdmin(req, res) {
                 });
             } else {
                 const cliente = clientesMap.get(clienteId);
+
                 if (!cliente.ids.includes(row.id_pedido)) {
                     cliente.ids.push(row.id_pedido);
+                }
+
+                if (!cliente.forma_pagamento && row.forma_pagamento) {
+                    cliente.forma_pagamento = row.forma_pagamento;
                 }
             }
 
             const cliente = clientesMap.get(clienteId);
+
+            cliente.valor_total += parseFloat(row.valor_total || 0);
 
             let cupcake = cliente.cupcakes.find(c =>
                 !c.tamanho || !c.recheio || !c.cobertura || !c.cor_cobertura
