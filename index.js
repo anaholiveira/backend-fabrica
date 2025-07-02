@@ -18,6 +18,7 @@ import { listarIngredientesPorTipo, adicionarIngrediente, excluirIngrediente } f
 import { listarFeedbacks, adicionarFeedback, excluirFeedback } from './servico/feedbackServico.js';
 import { relatorioPedidos } from './servico/relatorio.js';
 import { apagarPedidosAguardando } from './servico/resumo.js';
+import { fazerPedido } from './servico/resumo.js';
 
 dotenv.config();
 const app = express();
@@ -64,6 +65,28 @@ app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
 
   try {
     const resultado = await apagarPedidosAguardando(idCliente);
+    res.json(resultado);
+  } catch (error) {
+    res.status(400).json({ erro: error.message });
+  }
+});
+
+app.post('/fazerPedido', async (req, res) => {
+  const { id_cliente, forma_pagamento, total, quantidade } = req.body;
+
+  if (
+    !id_cliente ||
+    !forma_pagamento ||
+    isNaN(total) ||
+    isNaN(quantidade) ||
+    total <= 0 ||
+    quantidade <= 0
+  ) {
+    return res.status(400).json({ erro: 'Dados inválidos para fazer o pedido.' });
+  }
+
+  try {
+    const resultado = await fazerPedido(id_cliente, forma_pagamento, total, quantidade);
     res.json(resultado);
   } catch (error) {
     res.status(400).json({ erro: error.message });
