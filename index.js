@@ -18,7 +18,6 @@ import { listarIngredientesPorTipo, adicionarIngrediente, excluirIngrediente } f
 import { listarFeedbacks, adicionarFeedback, excluirFeedback } from './servico/feedbackServico.js';
 import { relatorioPedidos } from './servico/relatorio.js';
 import { apagarPedidosAguardando } from './servico/resumo.js';
-import { criarPedidoCheckout } from './servico/resumo.js';
 
 dotenv.config();
 const app = express();
@@ -66,17 +65,6 @@ app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
   try {
     const resultado = await apagarPedidosAguardando(idCliente);
     res.json(resultado);
-  } catch (error) {
-    res.status(400).json({ erro: error.message });
-  }
-});
-
-app.post('/pedido/checkout', async (req, res) => {
-  const { idCliente, formaPagamento, quantidade, valorTotal } = req.body;
-
-  try {
-    const resultado = await criarPedidoCheckout({ idCliente, formaPagamento, quantidade, valorTotal });
-    res.status(201).json(resultado);
   } catch (error) {
     res.status(400).json({ erro: error.message });
   }
