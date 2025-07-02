@@ -1,66 +1,54 @@
 import pool from './conexao.js';
 
-export async function getResumoPedido(idCliente) {
+export async function criarPedidoCheckout({ idCliente, formaPagamento, quantidade, valorTotal }) {
   try {
-    if (isNaN(idCliente) || idCliente <= 0) {
-      throw new Error('ID de cliente inválido. Deve ser um número maior que 0.');
-    }
-
-    const [cliente] = await pool.query('SELECT id_cliente FROM clientes WHERE id_cliente = ?', [idCliente]);
-    if (cliente.length === 0) {
-      return { erro: 'Cliente não encontrado.' };
-    }
-
-    const [rows] = await pool.query(`
-      SELECT
-        SUM(i.valor * pi.quantidade) AS subtotal,
-        SUM(CASE WHEN i.tipo = 'tamanho' THEN pi.quantidade ELSE 0 END) AS quantidade
-      FROM pedidos p
-      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
-      JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      WHERE p.id_cliente = ? 
-        AND p.status = 'aguardando'
-    `, [idCliente]);
-
-    const subtotal = parseFloat(rows[0].subtotal) || 0;
-    const quantidade = parseInt(rows[0].quantidade) || 0;
-
-    const taxaServico = 2.50;
-    const taxaEntrega = 5.00;
-    const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
-
-    return { quantidade, subtotal, taxaServico, taxaEntrega, total };
-
-  } catch (error) {
-    console.error('Erro ao obter resumo:', error);
-    throw error;
-  }
-}
-
-export async function apagarPedidosAguardando(idCliente) {
-  try {
-    if (isNaN(idCliente) || idCliente <= 0) {
+    if (!idCliente || isNaN(idCliente) || idCliente <= 0) {
       throw new Error('ID de cliente inválido.');
     }
+    if (!['pix', 'cartao', 'dinheiro', 'maquina'].includes(formaPagamento)) {
+      throw new Error('Forma de pagamento inválida.');
+    }
+    if (isNaN(quantidade) || quantidade <= 0) {
+      throw new Error('Quantidade inválida.');
+    }
+    if (isNaN(valorTotal) || valorTotal <= 0) {
+      throw new Error('Valor total inválido.');
+    }
 
-    const [pedidos] = await pool.query(
-      'SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando"',
+    const [result] = await pool.query(
+      'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, "aguardando")',
+      [idCliente, valorTotal, formaPagamento]
+    );
+
+    const idPedido = result.insertId;
+
+    const [pedidoIngredientes] = await pool.query(
+      `SELECT pi.id_ingrediente, pi.quantidade
+       FROM pedidos p
+       JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
+       WHERE p.id_cliente = ? AND p.status = 'aguardando'`,
       [idCliente]
     );
 
-    if (pedidos.length === 0) {
-      return { mensagem: 'Nenhum pedido com status "aguardando" encontrado para este cliente.' };
+    for (const item of pedidoIngredientes) {
+      await pool.query(
+        'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
+        [idPedido, item.id_ingrediente, item.quantidade]
+      );
     }
 
-    const ids = pedidos.map(p => p.id_pedido);
+    await pool.query(
+      'DELETE FROM pedido_ingredientes WHERE id_pedido IN (SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando" AND id_pedido <> ?)',
+      [idCliente, idPedido]
+    );
+    await pool.query(
+      'DELETE FROM pedidos WHERE id_cliente = ? AND status = "aguardando" AND id_pedido <> ?',
+      [idCliente, idPedido]
+    );
 
-    await pool.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
-    await pool.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
-
-    return { mensagem: 'Pedidos com status "aguardando" apagados com sucesso.' };
-
+    return { idPedido, mensagem: 'Pedido registrado com sucesso!' };
   } catch (error) {
-    console.error('Erro ao apagar pedidos:', error);
+    console.error('Erro ao criar pedido:', error);
     throw error;
   }
 }
