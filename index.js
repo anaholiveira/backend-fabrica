@@ -12,12 +12,11 @@ import { listarCarrinho } from './servico/listarCarrinho.js';
 import { excluirPedidoCarrinho } from './servico/excluirPedidoCarrinho.js';
 import { finalizarPedido } from './servico/finalizarPedido.js';
 import { fazerPedidoDireto } from './servico/fazerPedidoDireto.js';
-import { getResumoPedido } from './servico/resumo.js';
+import { getResumoPedido, apagarPedidosAguardando, registrarResumoPedido } from './servico/resumo.js';
 import { adicionarEndereco, listarEnderecos } from './servico/endereco.js';
 import { listarIngredientesPorTipo, adicionarIngrediente, excluirIngrediente } from './servico/ingredienteServico.js';
 import { listarFeedbacks, adicionarFeedback, excluirFeedback } from './servico/feedbackServico.js';
 import { relatorioPedidos } from './servico/relatorio.js';
-import { apagarPedidosAguardando } from './servico/resumo.js';
 
 dotenv.config();
 const app = express();
@@ -55,6 +54,15 @@ app.get('/resumo/:idCliente', async (req, res) => {
   }
 });
 
+app.post('/resumo', async (req, res) => {
+  try {
+    const resposta = await registrarResumoPedido(req.body);
+    res.status(201).json(resposta);
+  } catch (error) {
+    res.status(400).json({ erro: error.message });
+  }
+});
+
 app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
   const { idCliente } = req.params;
 
@@ -71,22 +79,22 @@ app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
 });
 
 app.post('/endereco', async (req, res) => {
-    try {
-        const novoEndereco = req.body;
-        const id = await adicionarEndereco(novoEndereco);
-        res.status(201).send({ id, mensagem: 'Endereço adicionado com sucesso!' });
-    } catch (error) {
-        res.status(400).send({ erro: error.message });
-    }
+  try {
+    const novoEndereco = req.body;
+    const id = await adicionarEndereco(novoEndereco);
+    res.status(201).send({ id, mensagem: 'Endereço adicionado com sucesso!' });
+  } catch (error) {
+    res.status(400).send({ erro: error.message });
+  }
 });
 
 app.get('/enderecos', async (req, res) => {
-    try {
-        const enderecos = await listarEnderecos();
-        res.send(enderecos);
-    } catch (error) {
-        res.status(500).send({ erro: error.message });
-    }
+  try {
+    const enderecos = await listarEnderecos();
+    res.send(enderecos);
+  } catch (error) {
+    res.status(500).send({ erro: error.message });
+  }
 });
 
 function formatarDataHora(data) {

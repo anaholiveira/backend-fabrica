@@ -24,7 +24,6 @@ export async function getResumoPedido(idCliente) {
 
     const subtotal = parseFloat(rows[0].subtotal) || 0;
     const quantidade = parseInt(rows[0].quantidade) || 0;
-
     const taxaServico = 2.50;
     const taxaEntrega = 5.00;
     const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
@@ -32,7 +31,6 @@ export async function getResumoPedido(idCliente) {
     return { quantidade, subtotal, taxaServico, taxaEntrega, total };
 
   } catch (error) {
-    console.error('Erro ao obter resumo:', error);
     throw error;
   }
 }
@@ -60,7 +58,58 @@ export async function apagarPedidosAguardando(idCliente) {
     return { mensagem: 'Pedidos com status "aguardando" apagados com sucesso.' };
 
   } catch (error) {
-    console.error('Erro ao apagar pedidos:', error);
     throw error;
+  }
+}
+
+export async function registrarResumoPedido(resumo) {
+  const { id_cliente, forma_pagamento, valor_total, quantidade, taxaServico, taxaEntrega } = resumo;
+
+  if (!id_cliente || !forma_pagamento || !valor_total || !quantidade) {
+    throw new Error('Dados incompletos. Verifique os campos enviados.');
+  }
+
+  const conn = await pool.getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    const [pedidoResult] = await conn.query(
+      'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
+      [id_cliente, valor_total, forma_pagamento, 'aguardando']
+    );
+
+    const novoPedidoId = pedidoResult.insertId;
+
+    const [carrinhos] = await conn.query(
+      'SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?',
+      [id_cliente]
+    );
+
+    for (const carrinho of carrinhos) {
+      const [ingredientes] = await conn.query(
+        'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
+        [carrinho.id_pedido_carrinho]
+      );
+
+      for (const ing of ingredientes) {
+        await conn.query(
+          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
+          [novoPedidoId, ing.id_ingrediente, 1]
+        );
+      }
+    }
+
+    await conn.query('DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)', [id_cliente]);
+    await conn.query('DELETE FROM pedidosCarrinho WHERE id_cliente = ?', [id_cliente]);
+
+    await conn.commit();
+
+    return { mensagem: 'Resumo do pedido registrado com sucesso.', id_pedido: novoPedidoId };
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
   }
 }
