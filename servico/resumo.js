@@ -74,6 +74,16 @@ export async function registrarResumoPedido(resumo) {
   try {
     await conn.beginTransaction();
 
+    const [pedidos] = await conn.query(
+      'SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando"',
+      [id_cliente]
+    );
+    if (pedidos.length > 0) {
+      const ids = pedidos.map(p => p.id_pedido);
+      await conn.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
+      await conn.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
+    }
+
     const [pedidoResult] = await conn.query(
       'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
       [id_cliente, valor_total, forma_pagamento, 'aguardando']
