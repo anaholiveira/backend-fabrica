@@ -100,7 +100,10 @@ export async function registrarResumoPedido(resumo) {
       }
     }
 
-    await conn.query('DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)', [id_cliente]);
+    await conn.query(
+      'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
+      [id_cliente]
+    );
     await conn.query('DELETE FROM pedidosCarrinho WHERE id_cliente = ?', [id_cliente]);
 
     await conn.commit();
