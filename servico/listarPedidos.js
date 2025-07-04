@@ -8,108 +8,84 @@ export async function listarPedidosAdmin(req, res) {
       SELECT 
         p.id_pedido,
         p.data_criacao,
-        c.id_cliente,
-        c.email AS email_cliente,
-        c.nome_completo,
         p.valor_total,
         p.forma_pagamento,
         p.status,
-        i.tipo,
-        i.nome AS nome_ingrediente,
+        c.id_cliente,
+        c.nome_completo,
+        c.email AS email_cliente,
+        e.rua,
+        e.numero,
+        e.bairro,
+        e.cep,
+        e.complemento,
         pi.quantidade,
-        pi.id_pedido,
-        e.rua, 
-        e.numero, 
-        e.bairro, 
-        e.cep, 
-        e.complemento
+        i.tipo,
+        i.nome AS nome_ingrediente
       FROM pedidos p
       JOIN clientes c ON p.id_cliente = c.id_cliente
+      LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
       JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
       WHERE p.status = ?
-      ORDER BY c.id_cliente, p.id_pedido, pi.id_pedido_ingrediente
+      ORDER BY p.id_pedido, pi.id_pedido_ingrediente
     `;
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
 
-    const clientesMap = new Map();
+    const pedidosMap = new Map();
 
     for (const row of rows) {
-      const clienteId = row.id_cliente;
+      const idPedido = row.id_pedido;
 
-      if (!clientesMap.has(clienteId)) {
-        clientesMap.set(clienteId, {
-          id_cliente: row.id_cliente,
-          email_cliente: row.email_cliente,
-          nome_completo: row.nome_completo,
-          valor_total: 0,
-          forma_pagamento: null,
+      if (!pedidosMap.has(idPedido)) {
+        pedidosMap.set(idPedido, {
+          id_pedido: idPedido,
+          data_criacao: new Date(row.data_criacao).toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          valor_total: parseFloat(row.valor_total || 0),
+          forma_pagamento: row.forma_pagamento,
           status: row.status,
-          data_criacao: row.data_criacao,
+          nome_completo: row.nome_completo,
+          email_cliente: row.email_cliente,
           rua: row.rua,
           numero: row.numero,
           bairro: row.bairro,
           cep: row.cep,
           complemento: row.complemento,
-          cupcakes: [],
-          ids: []
+          cupcakes: []
         });
       }
 
-      const cliente = clientesMap.get(clienteId);
+      const pedido = pedidosMap.get(idPedido);
 
-      if (!cliente.ids.includes(row.id_pedido)) {
-        cliente.ids.push(row.id_pedido);
-        cliente.valor_total += parseFloat(row.valor_total || 0);
-      }
-
-      if (!cliente.forma_pagamento && row.forma_pagamento) {
-        cliente.forma_pagamento = row.forma_pagamento;
-      }
-
-      let cupcake = cliente.cupcakes.find(c => c.id_pedido === row.id_pedido && c.quantidade === row.quantidade && !c.completo);
+      let cupcake = pedido.cupcakes.find(c => 
+        c.quantidade === row.quantidade &&
+        (!c.tamanho || !c.recheio || !c.cobertura || !c.cor_cobertura)
+      );
 
       if (!cupcake) {
         cupcake = {
-          id_pedido: row.id_pedido,
           tamanho: null,
           recheio: null,
           cobertura: null,
           cor_cobertura: null,
-          quantidade: row.quantidade,
-          completo: false
+          quantidade: row.quantidade
         };
-        cliente.cupcakes.push(cupcake);
+        pedido.cupcakes.push(cupcake);
       }
 
       cupcake[row.tipo] = row.nome_ingrediente;
-
-      if (cupcake.tamanho && cupcake.recheio && cupcake.cobertura && cupcake.cor_cobertura) {
-        cupcake.completo = true;
-      }
     }
 
-    const pedidosFormatados = Array.from(clientesMap.values()).map(cliente => {
-      const data = new Date(cliente.data_criacao);
-      return {
-        ...cliente,
-        data_criacao: data.toLocaleString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        cupcakes: cliente.cupcakes.map(c => {
-          const { completo, id_pedido, ...resto } = c;
-          return resto;
-        })
-      };
-    });
+    const pedidosArray = Array.from(pedidosMap.values());
+    res.json(pedidosArray);
 
-    res.json(pedidosFormatados);
   } catch (error) {
     console.error('Erro ao buscar pedidos:', error);
     res.status(500).json({ mensagem: 'Erro ao buscar pedidos' });
