@@ -24,11 +24,11 @@ export async function listarPedidosAdmin(req, res) {
         e.complemento
       FROM pedidos p
       JOIN clientes c ON p.id_cliente = c.id_cliente
-      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
-      JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
+      LEFT JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
+      LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
       LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
       WHERE p.status = ?
-      ORDER BY c.id_cliente, p.id_pedido, pi.id_pedido_ingrediente
+      ORDER BY c.id_cliente, p.data_criacao
     `;
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
@@ -44,7 +44,7 @@ export async function listarPedidosAdmin(req, res) {
           email_cliente: row.email_cliente,
           nome_completo: row.nome_completo,
           valor_total: 0,
-          forma_pagamento: row.forma_pagamento || null,
+          forma_pagamento: row.forma_pagamento,
           status: row.status,
           data_criacao: row.data_criacao,
           rua: row.rua,
@@ -64,12 +64,10 @@ export async function listarPedidosAdmin(req, res) {
         cliente.valor_total += parseFloat(row.valor_total || 0);
       }
 
-      if (!cliente.forma_pagamento && row.forma_pagamento) {
-        cliente.forma_pagamento = row.forma_pagamento;
-      }
+      if (!row.tipo || !row.nome_ingrediente) continue;
 
       let cupcake = cliente.cupcakes.find(c =>
-        !c.tamanho || !c.recheio || !c.cobertura || !c.cor_cobertura
+        c.tamanho === null || c.recheio === null || c.cobertura === null || c.cor_cobertura === null
       );
 
       if (!cupcake) {
