@@ -1,5 +1,3 @@
-import pool from './conexao.js';
-
 export async function listarPedidosAdmin(req, res) {
   try {
     const { filtro } = req.query;
@@ -33,43 +31,35 @@ export async function listarPedidosAdmin(req, res) {
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
 
-    const clientesMap = new Map();
+    const pedidosMap = new Map();
 
     for (const row of rows) {
-      const clienteId = row.id_cliente;
-
-      if (!clientesMap.has(clienteId)) {
-        clientesMap.set(clienteId, {
+      if (!pedidosMap.has(row.id_pedido)) {
+        pedidosMap.set(row.id_pedido, {
+          id_pedido: row.id_pedido,
+          data_criacao: row.data_criacao,
           id_cliente: row.id_cliente,
           email_cliente: row.email_cliente,
           nome_completo: row.nome_completo,
-          valor_total: 0,
+          valor_total: parseFloat(row.valor_total || 0),
           forma_pagamento: row.forma_pagamento || null,
           status: row.status,
-          data_criacao: row.data_criacao,
           rua: row.rua,
           numero: row.numero,
           bairro: row.bairro,
           cep: row.cep,
           complemento: row.complemento,
           cupcakes: [],
-          ids: [row.id_pedido]
         });
       }
 
-      const cliente = clientesMap.get(clienteId);
+      const pedido = pedidosMap.get(row.id_pedido);
 
-      if (!cliente.ids.includes(row.id_pedido)) {
-        cliente.ids.push(row.id_pedido);
-        cliente.valor_total += parseFloat(row.valor_total || 0);
-      }
-
-      if (!cliente.forma_pagamento && row.forma_pagamento) {
-        cliente.forma_pagamento = row.forma_pagamento;
-      }
-
-      let cupcake = cliente.cupcakes.find(c =>
-        !c.tamanho || !c.recheio || !c.cobertura || !c.cor_cobertura
+      let cupcake = pedido.cupcakes.find(cup => 
+        cup.tamanho === (row.tipo === 'tamanho' ? row.nome_ingrediente : cup.tamanho) &&
+        cup.recheio === (row.tipo === 'recheio' ? row.nome_ingrediente : cup.recheio) &&
+        cup.cobertura === (row.tipo === 'cobertura' ? row.nome_ingrediente : cup.cobertura) &&
+        cup.cor_cobertura === (row.tipo === 'cor_cobertura' ? row.nome_ingrediente : cup.cor_cobertura)
       );
 
       if (!cupcake) {
@@ -78,29 +68,60 @@ export async function listarPedidosAdmin(req, res) {
           recheio: null,
           cobertura: null,
           cor_cobertura: null,
-          quantidade: row.quantidade
+          quantidade: 0
         };
-        cliente.cupcakes.push(cupcake);
+        pedido.cupcakes.push(cupcake);
       }
 
       cupcake[row.tipo] = row.nome_ingrediente;
+      cupcake.quantidade += row.quantidade;
     }
 
-    const pedidosFormatados = Array.from(clientesMap.values()).map(cliente => {
-      const data = new Date(cliente.data_criacao);
-      return {
-        ...cliente,
-        data_criacao: data.toLocaleString('pt-BR', {
+    const clientesMap = new Map();
+
+    for (const pedido of pedidosMap.values()) {
+      if (!clientesMap.has(pedido.id_cliente)) {
+        clientesMap.set(pedido.id_cliente, {
+          id_cliente: pedido.id_cliente,
+          email_cliente: pedido.email_cliente,
+          nome_completo: pedido.nome_completo,
+          valor_total: 0,
+          forma_pagamento: null,
+          status: pedido.status,
+          pedidos: [],
+          rua: pedido.rua,
+          numero: pedido.numero,
+          bairro: pedido.bairro,
+          cep: pedido.cep,
+          complemento: pedido.complemento,
+        });
+      }
+
+      const cliente = clientesMap.get(pedido.id_cliente);
+
+      cliente.pedidos.push(pedido);
+      cliente.valor_total += pedido.valor_total;
+      if (!cliente.forma_pagamento && pedido.forma_pagamento) {
+        cliente.forma_pagamento = pedido.forma_pagamento;
+      }
+    }
+
+    const resultado = Array.from(clientesMap.values()).map(cliente => {
+      cliente.pedidos = cliente.pedidos.map(pedido => {
+        pedido.data_criacao = new Date(pedido.data_criacao).toLocaleString('pt-BR', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
           hour: '2-digit',
-          minute: '2-digit'
-        })
-      };
+          minute: '2-digit',
+        });
+        return pedido;
+      });
+      return cliente;
     });
 
-    res.json(pedidosFormatados);
+    res.json(resultado);
+
   } catch (error) {
     console.error('Erro ao buscar pedidos:', error);
     res.status(500).json({ mensagem: 'Erro ao buscar pedidos' });
