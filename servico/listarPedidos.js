@@ -17,6 +17,7 @@ export async function listarPedidosAdmin(req, res) {
         i.tipo,
         i.nome AS nome_ingrediente,
         pi.quantidade,
+        pi.id_pedido,
         e.rua, 
         e.numero, 
         e.bairro, 
@@ -44,7 +45,7 @@ export async function listarPedidosAdmin(req, res) {
           email_cliente: row.email_cliente,
           nome_completo: row.nome_completo,
           valor_total: 0,
-          forma_pagamento: row.forma_pagamento || null,
+          forma_pagamento: null,
           status: row.status,
           data_criacao: row.data_criacao,
           rua: row.rua,
@@ -53,7 +54,7 @@ export async function listarPedidosAdmin(req, res) {
           cep: row.cep,
           complemento: row.complemento,
           cupcakes: [],
-          ids: [row.id_pedido]
+          ids: []
         });
       }
 
@@ -68,22 +69,26 @@ export async function listarPedidosAdmin(req, res) {
         cliente.forma_pagamento = row.forma_pagamento;
       }
 
-      let cupcake = cliente.cupcakes.find(c =>
-        !c.tamanho || !c.recheio || !c.cobertura || !c.cor_cobertura
-      );
+      let cupcake = cliente.cupcakes.find(c => c.id_pedido === row.id_pedido && c.quantidade === row.quantidade && !c.completo);
 
       if (!cupcake) {
         cupcake = {
+          id_pedido: row.id_pedido,
           tamanho: null,
           recheio: null,
           cobertura: null,
           cor_cobertura: null,
-          quantidade: row.quantidade
+          quantidade: row.quantidade,
+          completo: false
         };
         cliente.cupcakes.push(cupcake);
       }
 
       cupcake[row.tipo] = row.nome_ingrediente;
+
+      if (cupcake.tamanho && cupcake.recheio && cupcake.cobertura && cupcake.cor_cobertura) {
+        cupcake.completo = true;
+      }
     }
 
     const pedidosFormatados = Array.from(clientesMap.values()).map(cliente => {
@@ -96,6 +101,10 @@ export async function listarPedidosAdmin(req, res) {
           year: 'numeric',
           hour: '2-digit',
           minute: '2-digit'
+        }),
+        cupcakes: cliente.cupcakes.map(c => {
+          const { completo, id_pedido, ...resto } = c;
+          return resto;
         })
       };
     });
