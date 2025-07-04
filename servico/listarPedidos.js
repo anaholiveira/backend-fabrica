@@ -24,8 +24,8 @@ export async function listarPedidosAdmin(req, res) {
         e.complemento
       FROM pedidos p
       JOIN clientes c ON p.id_cliente = c.id_cliente
-      LEFT JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
-      LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
+      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
+      JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
       LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
       WHERE p.status = ?
       ORDER BY c.id_cliente, p.id_pedido, pi.id_pedido_ingrediente
@@ -68,24 +68,22 @@ export async function listarPedidosAdmin(req, res) {
         cliente.forma_pagamento = row.forma_pagamento;
       }
 
-      if (row.tipo && row.nome_ingrediente) {
-        let cupcake = cliente.cupcakes.find(c =>
-          !c.tamanho || !c.recheio || !c.cobertura || !c.cor_cobertura
-        );
+      let cupcake = cliente.cupcakes.find(c =>
+        !c.tamanho || !c.recheio || !c.cobertura || !c.cor_cobertura
+      );
 
-        if (!cupcake) {
-          cupcake = {
-            tamanho: null,
-            recheio: null,
-            cobertura: null,
-            cor_cobertura: null,
-            quantidade: row.quantidade
-          };
-          cliente.cupcakes.push(cupcake);
-        }
-
-        cupcake[row.tipo] = row.nome_ingrediente;
+      if (!cupcake) {
+        cupcake = {
+          tamanho: null,
+          recheio: null,
+          cobertura: null,
+          cor_cobertura: null,
+          quantidade: row.quantidade
+        };
+        cliente.cupcakes.push(cupcake);
       }
+
+      cupcake[row.tipo] = row.nome_ingrediente;
     }
 
     const pedidosFormatados = Array.from(clientesMap.values()).map(cliente => {
