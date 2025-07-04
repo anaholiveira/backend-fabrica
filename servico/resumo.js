@@ -98,15 +98,45 @@ export async function registrarResumoPedido(resumo) {
 
     for (const carrinho of carrinhos) {
       const [ingredientes] = await conn.query(
-        'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
+        `SELECT i.id_ingrediente, i.tipo
+         FROM pedidosCarrinho_ingredientes pci
+         JOIN ingredientes i ON pci.id_ingrediente = i.id_ingrediente
+         WHERE pci.id_pedido_carrinho = ?`,
         [carrinho.id_pedido_carrinho]
       );
 
+      const agrupados = {
+        tamanho: [],
+        recheio: [],
+        cobertura: [],
+        cor_cobertura: []
+      };
+
       for (const ing of ingredientes) {
-        await conn.query(
-          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
-          [novoPedidoId, ing.id_ingrediente, 1]
-        );
+        agrupados[ing.tipo].push(ing.id_ingrediente);
+      }
+
+      const totalCupcakes = Math.min(
+        agrupados.tamanho.length,
+        agrupados.recheio.length,
+        agrupados.cobertura.length,
+        agrupados.cor_cobertura.length
+      );
+
+      for (let i = 0; i < totalCupcakes; i++) {
+        const tamanho = agrupados.tamanho[i];
+        const recheio = agrupados.recheio[i];
+        const cobertura = agrupados.cobertura[i];
+        const cor = agrupados.cor_cobertura[i];
+
+        const ingredientesCupcake = [tamanho, recheio, cobertura, cor];
+
+        for (const idIngrediente of ingredientesCupcake) {
+          await conn.query(
+            'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
+            [novoPedidoId, idIngrediente, 1]
+          );
+        }
       }
     }
 
