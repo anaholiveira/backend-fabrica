@@ -14,6 +14,7 @@ export async function listarPedidosAdmin(req, res) {
         p.valor_total,
         p.forma_pagamento,
         p.status,
+        pi.id_pedido_ingrediente, -- Adicionado para ajudar no agrupamento
         i.tipo,
         i.nome AS nome_ingrediente,
         pi.quantidade,
@@ -28,73 +29,82 @@ export async function listarPedidosAdmin(req, res) {
       LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
       LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
       WHERE p.status = ?
-      ORDER BY c.id_cliente, p.data_criacao
+      ORDER BY p.id_pedido, pi.id_pedido_ingrediente -- Ordenar por pedido e ingrediente para agrupamento
     `;
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
 
-    const clientesMap = new Map();
+    const pedidosAgrupados = new Map();
 
     for (const row of rows) {
-      const clienteId = row.id_cliente;
+      const pedidoId = row.id_pedido;
 
-      if (!clientesMap.has(clienteId)) {
-        clientesMap.set(clienteId, {
+      if (!pedidosAgrupados.has(pedidoId)) {
+        pedidosAgrupados.set(pedidoId, {
+          id_pedido: row.id_pedido,
+          data_criacao: row.data_criacao,
           id_cliente: row.id_cliente,
           email_cliente: row.email_cliente,
           nome_completo: row.nome_completo,
-          valor_total: 0,
+          valor_total: parseFloat(row.valor_total || 0),
           forma_pagamento: row.forma_pagamento,
           status: row.status,
-          data_criacao: row.data_criacao,
           rua: row.rua,
           numero: row.numero,
           bairro: row.bairro,
           cep: row.cep,
           complemento: row.complemento,
-          cupcakes: [],
-          ids: [row.id_pedido]
+          cupcakes: []
         });
       }
 
-      const cliente = clientesMap.get(clienteId);
+      const pedido = pedidosAgrupados.get(pedidoId);
 
-      if (!cliente.ids.includes(row.id_pedido)) {
-        cliente.ids.push(row.id_pedido);
-        cliente.valor_total += parseFloat(row.valor_total || 0);
+      if (row.tipo && row.nome_ingrediente) {
+
+        let lastCupcake = pedido.cupcakes[pedido.cupcakes.length - 1];
+
+        const quantidadeDoIngrediente = row.quantidade;
+
+        let cupcakeEncontrado = pedido.cupcakes.find(cp =>
+          (cp.tamanho === null || cp.recheio === null || cp.cobertura === null || cp.cor_cobertura === null) &&
+          (cp.quantidade === undefined || cp.quantidade === quantidadeDoIngrediente)
+        );
+
+        if (!cupcakeEncontrado) {
+          cupcakeEncontrado = {
+            tamanho: null,
+            recheio: null,
+            cobertura: null,
+            cor_cobertura: null,
+            quantidade: quantidadeDoIngrediente
+          };
+          pedido.cupcakes.push(cupcakeEncontrado);
+        }
+        
+        cupcakeEncontrado.quantidade = quantidadeDoIngrediente;
+
+        cupcakeEncontrado[row.tipo] = row.nome_ingrediente;
       }
-
-      if (!row.tipo || !row.nome_ingrediente) continue;
-
-      let cupcake = cliente.cupcakes.find(c =>
-        c.tamanho === null || c.recheio === null || c.cobertura === null || c.cor_cobertura === null
-      );
-
-      if (!cupcake) {
-        cupcake = {
-          tamanho: null,
-          recheio: null,
-          cobertura: null,
-          cor_cobertura: null,
-          quantidade: row.quantidade
-        };
-        cliente.cupcakes.push(cupcake);
-      }
-
-      cupcake[row.tipo] = row.nome_ingrediente;
     }
 
-    const pedidosFormatados = Array.from(clientesMap.values()).map(cliente => {
-      const data = new Date(cliente.data_criacao);
+    const pedidosFormatados = Array.from(pedidosAgrupados.values()).map(pedido => {
+      const data = new Date(pedido.data_criacao);
+
+      const cupcakesValidos = pedido.cupcakes.filter(cp => 
+          cp.tamanho || cp.recheio || cp.cobertura || cp.cor_cobertura
+      );
+
       return {
-        ...cliente,
+        ...pedido,
         data_criacao: data.toLocaleString('pt-BR', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
           hour: '2-digit',
           minute: '2-digit'
-        })
+        }),
+        cupcakes: cupcakesValidos
       };
     });
 
