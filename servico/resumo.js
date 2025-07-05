@@ -13,8 +13,8 @@ export async function getResumoPedido(idCliente) {
 
     const [rows] = await pool.query(`
       SELECT
-        SUM(i.valor * pi.quantidade) AS subtotal_total_cupcakes,
-        SUM(pi.quantidade) AS quantidade_total_cupcakes
+        SUM(i.valor * pi.quantidade) AS subtotal_calculado,
+        SUM(CASE WHEN i.tipo = 'tamanho' THEN pi.quantidade ELSE 0 END) AS quantidade_cupcakes_total
       FROM pedidos p
       JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
@@ -22,8 +22,8 @@ export async function getResumoPedido(idCliente) {
         AND p.status = 'aguardando'
     `, [idCliente]);
 
-    const subtotal = parseFloat(rows[0].subtotal_total_cupcakes) || 0;
-    const quantidade = parseInt(rows[0].quantidade_total_cupcakes) || 0;
+    const subtotal = parseFloat(rows[0].subtotal_calculado) || 0;
+    const quantidade = parseInt(rows[0].quantidade_cupcakes_total) || 0;
     
     const taxaServico = 2.50;
     const taxaEntrega = 5.00;
@@ -68,7 +68,7 @@ export async function apagarPedidosAguardando(idCliente) {
 export async function registrarResumoPedido(resumo) {
     const { id_cliente, forma_pagamento, valor_total } = resumo; 
 
-    if (!id_cliente || !forma_pagamento || !valor_total === undefined || valor_total === null) {
+    if (!id_cliente || !forma_pagamento || valor_total === undefined || valor_total === null) {
         throw new Error('Dados incompletos. Verifique os campos enviados (id_cliente, forma_pagamento, valor_total).');
     }
 
@@ -83,7 +83,7 @@ export async function registrarResumoPedido(resumo) {
         );
 
         if (pedidosAguardando.length === 0) {
-            await conn.rollback(); 
+            await conn.rollback();
             return { mensagem: 'Nenhum pedido "aguardando" encontrado para este cliente para ser finalizado.' };
         }
 
@@ -91,9 +91,9 @@ export async function registrarResumoPedido(resumo) {
 
         await conn.query(
             'UPDATE pedidos SET forma_pagamento = ?, status = ?, valor_total = ? WHERE id_pedido IN (?)',
-            [forma_pagamento, 'aguardando', valor_total, idsPedidosAguardando]
+            [forma_pagamento, 'aguardando', valor_total, idsPedidosAguardando] 
         );
-
+        
         await conn.query(
             'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
             [id_cliente]
@@ -105,10 +105,10 @@ export async function registrarResumoPedido(resumo) {
         return { mensagem: 'Pedidos registrados e finalizados com sucesso.', ids_pedidos: idsPedidosAguardando };
 
     } catch (error) {
-        await conn.rollback();
+        await conn.rollback(); 
         console.error('Erro ao registrar resumo do pedido:', error);
         throw error;
     } finally {
-        conn.release();
+        conn.release(); 
     }
 }
