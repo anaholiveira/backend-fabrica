@@ -19,7 +19,7 @@ export async function getResumoPedido(idCliente) {
       JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
       WHERE p.id_cliente = ?
-        AND p.status = 'aguardando'
+        AND p.status = 'aguardando' -- Mantenha 'aguardando' aqui para pegar o que está pendente
     `, [idCliente]);
 
     const subtotal = parseFloat(rows[0].subtotal_calculado) || 0;
@@ -90,10 +90,10 @@ export async function registrarResumoPedido(resumo) {
         const idsPedidosAguardando = pedidosAguardando.map(p => p.id_pedido);
 
         await conn.query(
-            'UPDATE pedidos SET forma_pagamento = ?, status = ?, valor_total = ? WHERE id_pedido IN (?)',
-            [forma_pagamento, 'aguardando', valor_total, idsPedidosAguardando] 
+            'UPDATE pedidos SET forma_pagamento = ?, status = ? WHERE id_pedido IN (?)',
+            [forma_pagamento, 'preparando', idsPedidosAguardando]
         );
-        
+
         await conn.query(
             'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
             [id_cliente]
