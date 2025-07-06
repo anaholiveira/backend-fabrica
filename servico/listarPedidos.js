@@ -54,28 +54,36 @@ export async function listarPedidosAdmin(req, res) {
           bairro: row.bairro,
           cep: row.cep,
           complemento: row.complemento,
-          cupcakes: [] 
+          cupcakes: []
         });
       }
 
       const pedido = pedidosAgrupados.get(pedidoId);
 
       if (row.tipo && row.nome_ingrediente) {
+
+        let lastCupcake = pedido.cupcakes[pedido.cupcakes.length - 1];
+
+        const quantidadeDoIngrediente = row.quantidade;
+
         let cupcakeEncontrado = pedido.cupcakes.find(cp =>
-            cp.quantidade === row.quantidade && 
-            (cp.tamanho === null || cp.recheio === null || cp.cobertura === null || cp.cor_cobertura === null)
+          (cp.tamanho === null || cp.recheio === null || cp.cobertura === null || cp.cor_cobertura === null) &&
+          (cp.quantidade === undefined || cp.quantidade === quantidadeDoIngrediente)
         );
 
         if (!cupcakeEncontrado) {
-            cupcakeEncontrado = {
-                tamanho: null,
-                recheio: null,
-                cobertura: null,
-                cor_cobertura: null,
-                quantidade: row.quantidade 
-            };
-            pedido.cupcakes.push(cupcakeEncontrado);
+          cupcakeEncontrado = {
+            tamanho: null,
+            recheio: null,
+            cobertura: null,
+            cor_cobertura: null,
+            quantidade: quantidadeDoIngrediente
+          };
+          pedido.cupcakes.push(cupcakeEncontrado);
         }
+        
+        cupcakeEncontrado.quantidade = quantidadeDoIngrediente;
+
         cupcakeEncontrado[row.tipo] = row.nome_ingrediente;
       }
     }
@@ -84,21 +92,19 @@ export async function listarPedidosAdmin(req, res) {
       const data = new Date(pedido.data_criacao);
 
       const cupcakesValidos = pedido.cupcakes.filter(cp => 
-          cp.tamanho || cp.recheio || cp.cobertura || cp.cor_cobertura || cp.quantidade
+          cp.tamanho || cp.recheio || cp.cobertura || cp.cor_cobertura
       );
 
       return {
         ...pedido,
         data_criacao: data.toLocaleString('pt-BR', {
-          day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
         }),
-        cupcakes: cupcakesValidos.length > 0 ? cupcakesValidos : [{ 
-            tamanho: 'N/A',
-            recheio: 'N/A',
-            cobertura: 'N/A',
-            cor_cobertura: 'N/A',
-            quantidade: 1 
-        }]
+        cupcakes: cupcakesValidos
       };
     });
 
