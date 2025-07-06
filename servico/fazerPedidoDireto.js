@@ -9,12 +9,12 @@ export async function fazerPedidoDireto(req, res) {
       [ingredientes]
     );
 
-    const valor_total_unitario = dados.reduce(
+    const valor_unitario_cupcake = dados.reduce(
       (total, item) => total + Number(item.valor),
       0
     );
 
-    const valor_total = valor_total_unitario * quantidade;
+    const valor_total = valor_unitario_cupcake * quantidade;
 
     const [pedido] = await pool.query(
       "INSERT INTO pedidos (id_cliente, valor_total, quantidade, status) VALUES (?, ?, ?, 'aguardando')",

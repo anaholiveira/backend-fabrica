@@ -2,6 +2,7 @@ import pool from './conexao.js';
 
 export async function finalizarPedido(req, res) {
   const { id_cliente } = req.body;
+
   try {
     const [pedidosCarrinho] = await pool.query(
       `SELECT * FROM pedidosCarrinho WHERE id_cliente = ?`,
@@ -9,6 +10,7 @@ export async function finalizarPedido(req, res) {
     );
 
     const listaPedidos = [];
+
     for (const pedido of pedidosCarrinho) {
       const [pedidoResult] = await pool.query(
         `INSERT INTO pedidos (id_cliente, valor_total, quantidade, status) VALUES (?, ?, ?, 'aguardando')`,
@@ -18,10 +20,7 @@ export async function finalizarPedido(req, res) {
       const id_novo_pedido = pedidoResult.insertId;
 
       const [ingredientes] = await pool.query(
-        `SELECT ci.id_ingrediente, p.quantidade AS quantidade_pedido_carrinho
-         FROM pedidosCarrinho_ingredientes ci
-         JOIN pedidosCarrinho p ON ci.id_pedido_carrinho = p.id_pedido_carrinho
-         WHERE ci.id_pedido_carrinho = ?`,
+        `SELECT ci.id_ingrediente FROM pedidosCarrinho_ingredientes ci WHERE ci.id_pedido_carrinho = ?`,
         [pedido.id_pedido_carrinho]
       );
 
