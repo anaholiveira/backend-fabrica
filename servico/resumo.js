@@ -74,38 +74,33 @@ export async function registrarResumoPedido(resumo) {
   try {
     await conn.beginTransaction();
 
-    const [pedidos] = await conn.query(
-      'SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando"',
-      [id_cliente]
-    );
-    if (pedidos.length > 0) {
-      const ids = pedidos.map(p => p.id_pedido);
-      await conn.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
-      await conn.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
-    }
-
-    const [pedidoResult] = await conn.query(
-      'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
-      [id_cliente, valor_total, forma_pagamento, 'aguardando']
+    await conn.query(
+      'UPDATE pedidos SET forma_pagamento = ? WHERE id_cliente = ? AND status = "aguardando"',
+      [forma_pagamento, id_cliente]
     );
 
-    const novoPedidoId = pedidoResult.insertId;
-
-    const [carrinhos] = await conn.query(
-      'SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?',
+    const [pedidosCarrinho] = await conn.query(
+      'SELECT * FROM pedidosCarrinho WHERE id_cliente = ?',
       [id_cliente]
     );
 
-    for (const carrinho of carrinhos) {
+    for (const pedidoCarrinho of pedidosCarrinho) {
+      const [pedidoResult] = await conn.query(
+        'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
+        [id_cliente, pedidoCarrinho.valor_total, forma_pagamento, 'aguardando']
+      );
+
+      const novoPedidoId = pedidoResult.insertId;
+
       const [ingredientes] = await conn.query(
-        'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
-        [carrinho.id_pedido_carrinho]
+        'SELECT id_ingrediente, quantidade FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
+        [pedidoCarrinho.id_pedido_carrinho]
       );
 
       for (const ing of ingredientes) {
         await conn.query(
           'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
-          [novoPedidoId, ing.id_ingrediente, 1]
+          [novoPedidoId, ing.id_ingrediente, ing.quantidade]
         );
       }
     }
@@ -118,7 +113,7 @@ export async function registrarResumoPedido(resumo) {
 
     await conn.commit();
 
-    return { mensagem: 'Resumo do pedido registrado com sucesso.', id_pedido: novoPedidoId };
+    return { mensagem: 'Resumo do pedido registrado com sucesso.' };
   } catch (error) {
     await conn.rollback();
     throw error;
