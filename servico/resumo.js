@@ -17,28 +17,25 @@ export async function getResumoPedido(idCliente) {
       FROM pedidos p
       JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      WHERE p.id_cliente = ? 
-        AND p.status = 'aguardando'
+      WHERE p.id_cliente = ? AND p.status = 'aguardando'
     `, [idCliente]);
 
-    const [quantidades] = await pool.query(`
-      SELECT COUNT(DISTINCT p.id_pedido) AS quantidade
+    const [qtRows] = await pool.query(`
+      SELECT
+        SUM(pi.quantidade) AS quantidade
       FROM pedidos p
       JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      WHERE p.id_cliente = ?
-        AND p.status = 'aguardando'
-        AND i.tipo = 'tamanho'
+      WHERE p.id_cliente = ? AND p.status = 'aguardando' AND i.tipo = 'tamanho'
     `, [idCliente]);
 
     const subtotal = parseFloat(rows[0].subtotal) || 0;
-    const quantidade = parseInt(quantidades[0].quantidade) || 0;
+    const quantidade = parseInt(qtRows[0].quantidade) || 0;
     const taxaServico = 2.50;
     const taxaEntrega = 5.00;
     const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
 
     return { quantidade, subtotal, taxaServico, taxaEntrega, total };
-
   } catch (error) {
     throw error;
   }
@@ -65,7 +62,6 @@ export async function apagarPedidosAguardando(idCliente) {
     await pool.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
 
     return { mensagem: 'Pedidos com status "aguardando" apagados com sucesso.' };
-
   } catch (error) {
     throw error;
   }
@@ -88,12 +84,12 @@ export async function registrarResumoPedido(resumo) {
       [forma_pagamento, id_cliente]
     );
 
-    const [pedidosCarrinho] = await conn.query(
+    const [carrinhos] = await conn.query(
       'SELECT * FROM pedidosCarrinho WHERE id_cliente = ?',
       [id_cliente]
     );
 
-    for (const pedidoCarrinho of pedidosCarrinho) {
+    for (const pedidoCarrinho of carrinhos) {
       const [pedidoResult] = await conn.query(
         'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
         [id_cliente, pedidoCarrinho.valor_total, forma_pagamento, 'aguardando']
