@@ -75,9 +75,41 @@ export async function registrarResumoPedido(resumo) {
       [forma_pagamento, id_cliente]
     );
 
+    const [carrinhos] = await conn.query(
+      'SELECT * FROM pedidosCarrinho WHERE id_cliente = ?',
+      [id_cliente]
+    );
+
+    for (const pedidoCarrinho of carrinhos) {
+      const [pedidoResult] = await conn.query(
+        'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
+        [id_cliente, pedidoCarrinho.valor_total, forma_pagamento, 'aguardando']
+      );
+
+      const novoPedidoId = pedidoResult.insertId;
+
+      const [ingredientes] = await conn.query(
+        'SELECT id_ingrediente, quantidade FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
+        [pedidoCarrinho.id_pedido_carrinho]
+      );
+
+      for (const ing of ingredientes) {
+        await conn.query(
+          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
+          [novoPedidoId, ing.id_ingrediente, ing.quantidade]
+        );
+      }
+    }
+
+    await conn.query(
+      'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
+      [id_cliente]
+    );
+    await conn.query('DELETE FROM pedidosCarrinho WHERE id_cliente = ?', [id_cliente]);
+
     await conn.commit();
 
-    return { mensagem: 'Resumo do pedido registrado com sucesso.' };
+    return { mensagem: 'Resumo do pedido registrado com sucesso!' };
   } catch (error) {
     await conn.rollback();
     throw error;
