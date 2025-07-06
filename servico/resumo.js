@@ -87,7 +87,7 @@ export async function registrarResumoPedido(pedido) {
   const valores = [id_cliente, forma_pagamento, qtd, total, taxaServ, taxaEnt, 'aguardando'];
 
   try {
-    const resultado = await conexao.query(sql, valores);
+    const [resultado] = await pool.query(sql, valores);
     return { id: resultado.insertId, mensagem: 'Resumo do pedido registrado com sucesso!' };
   } catch (error) {
     throw new Error('Erro ao registrar resumo do pedido: ' + error.message);
