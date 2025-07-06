@@ -19,7 +19,7 @@ export async function getResumoPedido(idCliente) {
       JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
       WHERE p.id_cliente = ?
-        AND p.status = 'aguardando' -- Mantenha 'aguardando' aqui para pegar o que está pendente
+        AND p.status = 'aguardando'
     `, [idCliente]);
 
     const subtotal = parseFloat(rows[0].subtotal_calculado) || 0;
@@ -54,6 +54,7 @@ export async function apagarPedidosAguardando(idCliente) {
 
     const ids = pedidos.map(p => p.id_pedido);
 
+    // É crucial deletar primeiro de pedido_ingredientes devido à chave estrangeira
     await pool.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
     await pool.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
 
@@ -91,7 +92,7 @@ export async function registrarResumoPedido(resumo) {
 
         await conn.query(
             'UPDATE pedidos SET forma_pagamento = ?, status = ? WHERE id_pedido IN (?)',
-            [forma_pagamento, 'preparando', idsPedidosAguardando]
+            [forma_pagamento, 'preparando', idsPedidosAguardando] // *STATUS MUDOU AQUI*
         );
 
         await conn.query(
@@ -105,10 +106,10 @@ export async function registrarResumoPedido(resumo) {
         return { mensagem: 'Pedidos registrados e finalizados com sucesso.', ids_pedidos: idsPedidosAguardando };
 
     } catch (error) {
-        await conn.rollback(); 
+        await conn.rollback();
         console.error('Erro ao registrar resumo do pedido:', error);
         throw error;
     } finally {
-        conn.release(); 
+        conn.release();
     }
 }
