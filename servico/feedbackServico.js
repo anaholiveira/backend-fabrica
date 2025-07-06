@@ -9,8 +9,8 @@ async function listarFeedbacks() {
             f.comentario,
             f.foto,
             f.data_criacao,
-            c.nome AS nome_cliente, -- Esta linha adiciona o nome do cliente
-            c.email AS email_cliente -- Esta linha adiciona o email do cliente (opcional)
+            c.nome AS nome_cliente,
+            c.email AS email_cliente
         FROM
             feedbacks AS f
         JOIN
