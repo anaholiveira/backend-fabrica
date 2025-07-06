@@ -54,7 +54,6 @@ export async function apagarPedidosAguardando(idCliente) {
 
     const ids = pedidos.map(p => p.id_pedido);
 
-    // É crucial deletar primeiro de pedido_ingredientes devido à chave estrangeira
     await pool.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
     await pool.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
 
@@ -92,7 +91,7 @@ export async function registrarResumoPedido(resumo) {
 
         await conn.query(
             'UPDATE pedidos SET forma_pagamento = ?, status = ? WHERE id_pedido IN (?)',
-            [forma_pagamento, 'preparando', idsPedidosAguardando] // *STATUS MUDOU AQUI*
+            [forma_pagamento, 'aguardando', idsPedidosAguardando]
         );
 
         await conn.query(
