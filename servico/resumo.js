@@ -11,30 +11,25 @@ export async function getResumoPedido(idCliente) {
       return { erro: 'Cliente não encontrado.' };
     }
 
-    const [resumoPedidos] = await pool.query(`
-      SELECT 
-        COALESCE(SUM(quantidade), 0) AS quantidade,
-        COALESCE(SUM(valor_total), 0) AS subtotal
-      FROM pedidos
-      WHERE id_cliente = ? AND status = 'aguardando'
+    const [rows] = await pool.query(`
+      SELECT
+        SUM(i.valor * pi.quantidade) AS subtotal,
+        SUM(CASE WHEN i.tipo = 'tamanho' THEN pi.quantidade ELSE 0 END) AS quantidade
+      FROM pedidos p
+      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
+      JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
+      WHERE p.id_cliente = ? 
+        AND p.status = 'aguardando'
     `, [idCliente]);
 
-    const [resumoCarrinho] = await pool.query(`
-      SELECT 
-        COALESCE(SUM(quantidade), 0) AS quantidade,
-        COALESCE(SUM(valor_total), 0) AS subtotal
-      FROM pedidosCarrinho
-      WHERE id_cliente = ?
-    `, [idCliente]);
-
-    const quantidade = (resumoPedidos[0].quantidade || 0) + (resumoCarrinho[0].quantidade || 0);
-    const subtotal = parseFloat(resumoPedidos[0].subtotal || 0) + parseFloat(resumoCarrinho[0].subtotal || 0);
-
+    const subtotal = parseFloat(rows[0].subtotal) || 0;
+    const quantidade = parseInt(rows[0].quantidade) || 0;
     const taxaServico = 2.50;
     const taxaEntrega = 5.00;
     const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
 
     return { quantidade, subtotal, taxaServico, taxaEntrega, total };
+
   } catch (error) {
     throw error;
   }
@@ -61,43 +56,73 @@ export async function apagarPedidosAguardando(idCliente) {
     await pool.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
 
     return { mensagem: 'Pedidos com status "aguardando" apagados com sucesso.' };
+
   } catch (error) {
     throw error;
   }
 }
 
-export async function registrarResumoPedido(pedido) {
-  const {
-    id_cliente,
-    forma_pagamento,
-    quantidade,
-    valor_total,
-    taxaServico,
-    taxaEntrega,
-  } = pedido;
+export async function registrarResumoPedido(resumo) {
+  const { id_cliente, forma_pagamento, valor_total, quantidade, taxaServico, taxaEntrega } = resumo;
 
-  if (!id_cliente || !forma_pagamento || !quantidade || !valor_total) {
-    throw new Error('Campos obrigatórios faltando');
+  if (!id_cliente || !forma_pagamento || !valor_total || !quantidade) {
+    throw new Error('Dados incompletos. Verifique os campos enviados.');
   }
 
-  const qtd = Number(quantidade);
-  const total = Number(valor_total);
-  const taxaServ = Number(taxaServico || 0);
-  const taxaEnt = Number(taxaEntrega || 0);
-
-  if (isNaN(qtd) || isNaN(total)) {
-    throw new Error('Quantidade e valor total devem ser números válidos');
-  }
-
-  const sql =
-    'INSERT INTO pedidos (id_cliente, forma_pagamento, quantidade, valor_total, taxaServico, taxaEntrega, status) VALUES (?, ?, ?, ?, ?, ?, ?)';
-
-  const valores = [id_cliente, forma_pagamento, qtd, total, taxaServ, taxaEnt, 'aguardando'];
+  const conn = await pool.getConnection();
 
   try {
-    const [resultado] = await pool.query(sql, valores);
-    return { id: resultado.insertId, mensagem: 'Resumo do pedido registrado com sucesso!' };
+    await conn.beginTransaction();
+
+    const [pedidos] = await conn.query(
+      'SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando"',
+      [id_cliente]
+    );
+    if (pedidos.length > 0) {
+      const ids = pedidos.map(p => p.id_pedido);
+      await conn.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
+      await conn.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
+    }
+
+    const [pedidoResult] = await conn.query(
+      'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
+      [id_cliente, valor_total, forma_pagamento, 'aguardando']
+    );
+
+    const novoPedidoId = pedidoResult.insertId;
+
+    const [carrinhos] = await conn.query(
+      'SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?',
+      [id_cliente]
+    );
+
+    for (const carrinho of carrinhos) {
+      const [ingredientes] = await conn.query(
+        'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
+        [carrinho.id_pedido_carrinho]
+      );
+
+      for (const ing of ingredientes) {
+        await conn.query(
+          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
+          [novoPedidoId, ing.id_ingrediente, 1]
+        );
+      }
+    }
+
+    await conn.query(
+      'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
+      [id_cliente]
+    );
+    await conn.query('DELETE FROM pedidosCarrinho WHERE id_cliente = ?', [id_cliente]);
+
+    await conn.commit();
+
+    return { mensagem: 'Resumo do pedido registrado com sucesso.', id_pedido: novoPedidoId };
   } catch (error) {
-    throw new Error('Erro ao registrar resumo do pedido: ' + error.message);
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
   }
 }
