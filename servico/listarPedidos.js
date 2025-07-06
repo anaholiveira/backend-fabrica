@@ -14,7 +14,6 @@ export async function listarPedidosAdmin(req, res) {
         p.valor_total,
         p.forma_pagamento,
         p.status,
-        pi.id_pedido_ingrediente, -- Adicionado para ajudar no agrupamento
         i.tipo,
         i.nome AS nome_ingrediente,
         pi.quantidade,
@@ -29,19 +28,19 @@ export async function listarPedidosAdmin(req, res) {
       LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
       LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
       WHERE p.status = ?
-      ORDER BY p.id_pedido, pi.id_pedido_ingrediente -- Ordenar por pedido e ingrediente para agrupamento
+      ORDER BY p.id_pedido
     `;
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
 
-    const pedidosAgrupados = new Map();
+    const pedidosMap = new Map();
 
     for (const row of rows) {
       const pedidoId = row.id_pedido;
 
-      if (!pedidosAgrupados.has(pedidoId)) {
-        pedidosAgrupados.set(pedidoId, {
-          id_pedido: row.id_pedido,
+      if (!pedidosMap.has(pedidoId)) {
+        pedidosMap.set(pedidoId, {
+          id_pedido: pedidoId,
           data_criacao: row.data_criacao,
           id_cliente: row.id_cliente,
           email_cliente: row.email_cliente,
@@ -58,41 +57,40 @@ export async function listarPedidosAdmin(req, res) {
         });
       }
 
-      const pedido = pedidosAgrupados.get(pedidoId);
+      const pedido = pedidosMap.get(pedidoId);
 
-      if (row.tipo && row.nome_ingrediente) {
+      const ingrediente = {
+        tipo: row.tipo,
+        nome: row.nome_ingrediente,
+        quantidade: row.quantidade
+      };
 
-        let lastCupcake = pedido.cupcakes[pedido.cupcakes.length - 1];
+      let cupcake = pedido.cupcakes.find(c =>
+        c.quantidade === ingrediente.quantidade &&
+        (!c.tamanho || !c.recheio || !c.cobertura || !c.cor_cobertura)
+      );
 
-        const quantidadeDoIngrediente = row.quantidade;
+      if (!cupcake) {
+        cupcake = {
+          tamanho: null,
+          recheio: null,
+          cobertura: null,
+          cor_cobertura: null,
+          quantidade: ingrediente.quantidade
+        };
+        pedido.cupcakes.push(cupcake);
+      }
 
-        let cupcakeEncontrado = pedido.cupcakes.find(cp =>
-          (cp.tamanho === null || cp.recheio === null || cp.cobertura === null || cp.cor_cobertura === null) &&
-          (cp.quantidade === undefined || cp.quantidade === quantidadeDoIngrediente)
-        );
-
-        if (!cupcakeEncontrado) {
-          cupcakeEncontrado = {
-            tamanho: null,
-            recheio: null,
-            cobertura: null,
-            cor_cobertura: null,
-            quantidade: quantidadeDoIngrediente
-          };
-          pedido.cupcakes.push(cupcakeEncontrado);
-        }
-        
-        cupcakeEncontrado.quantidade = quantidadeDoIngrediente;
-
-        cupcakeEncontrado[row.tipo] = row.nome_ingrediente;
+      if (ingrediente.tipo && ingrediente.nome) {
+        cupcake[ingrediente.tipo] = ingrediente.nome;
       }
     }
 
-    const pedidosFormatados = Array.from(pedidosAgrupados.values()).map(pedido => {
+    const pedidosFormatados = Array.from(pedidosMap.values()).map(pedido => {
       const data = new Date(pedido.data_criacao);
 
-      const cupcakesValidos = pedido.cupcakes.filter(cp => 
-          cp.tamanho || cp.recheio || cp.cobertura || cp.cor_cobertura
+      const cupcakesValidos = pedido.cupcakes.filter(cp =>
+        cp.tamanho || cp.recheio || cp.cobertura || cp.cor_cobertura
       );
 
       return {
