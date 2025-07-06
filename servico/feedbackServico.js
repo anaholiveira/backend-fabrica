@@ -1,7 +1,24 @@
 import pool from './conexao.js';
 
 async function listarFeedbacks() {
-    const [linhas] = await pool.execute('SELECT * FROM feedbacks');
+    const query = `
+        SELECT
+            f.id_feedback,
+            f.id_cliente,
+            f.estrelas,
+            f.comentario,
+            f.foto,
+            f.data_criacao,
+            c.nome AS nome_cliente, -- Esta linha adiciona o nome do cliente
+            c.email AS email_cliente -- Esta linha adiciona o email do cliente (opcional)
+        FROM
+            feedbacks AS f
+        JOIN
+            clientes AS c ON f.id_cliente = c.id_cliente
+        ORDER BY
+            f.data_criacao DESC; -- Opcional: para listar os mais recentes primeiro
+    `;
+    const [linhas] = await pool.execute(query);
     return linhas;
 }
 
