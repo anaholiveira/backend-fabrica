@@ -21,7 +21,7 @@ export async function getResumoPedido(idCliente) {
 
     const [resumoCarrinho] = await pool.query(`
       SELECT 
-        COUNT(*) AS quantidade,
+        COALESCE(SUM(quantidade), 0) AS quantidade,
         COALESCE(SUM(valor_total), 0) AS subtotal
       FROM pedidosCarrinho
       WHERE id_cliente = ?
