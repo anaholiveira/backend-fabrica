@@ -11,26 +11,17 @@ export async function getResumoPedido(idCliente) {
       return { erro: 'Cliente não encontrado.' };
     }
 
-    const [rows] = await pool.query(`
-      SELECT
-        SUM(i.valor * pi.quantidade) AS subtotal
-      FROM pedidos p
-      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
-      JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      WHERE p.id_cliente = ? AND p.status = 'aguardando'
+    const [resumoPedidos] = await pool.query(`
+      SELECT 
+        COUNT(*) AS quantidade,
+        COALESCE(SUM(valor_total), 0) AS subtotal
+      FROM pedidos
+      WHERE id_cliente = ? AND status = 'aguardando'
     `, [idCliente]);
 
-    const [qtRows] = await pool.query(`
-      SELECT
-        SUM(pi.quantidade) AS quantidade
-      FROM pedidos p
-      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
-      JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      WHERE p.id_cliente = ? AND p.status = 'aguardando' AND i.tipo = 'tamanho'
-    `, [idCliente]);
+    const quantidade = resumoPedidos[0].quantidade || 0;
+    const subtotal = parseFloat(resumoPedidos[0].subtotal) || 0;
 
-    const subtotal = parseFloat(rows[0].subtotal) || 0;
-    const quantidade = parseInt(qtRows[0].quantidade) || 0;
     const taxaServico = 2.50;
     const taxaEntrega = 5.00;
     const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
@@ -83,12 +74,6 @@ export async function registrarResumoPedido(resumo) {
       'UPDATE pedidos SET forma_pagamento = ? WHERE id_cliente = ? AND status = "aguardando"',
       [forma_pagamento, id_cliente]
     );
-
-    await conn.query(
-      'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
-      [id_cliente]
-    );
-    await conn.query('DELETE FROM pedidosCarrinho WHERE id_cliente = ?', [id_cliente]);
 
     await conn.commit();
 
