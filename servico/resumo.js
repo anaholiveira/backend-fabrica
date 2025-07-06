@@ -13,14 +13,22 @@ export async function getResumoPedido(idCliente) {
 
     const [resumoPedidos] = await pool.query(`
       SELECT 
-        COUNT(*) AS quantidade,
+        COALESCE(SUM(quantidade), 0) AS quantidade,
         COALESCE(SUM(valor_total), 0) AS subtotal
       FROM pedidos
       WHERE id_cliente = ? AND status = 'aguardando'
     `, [idCliente]);
 
-    const quantidade = resumoPedidos[0].quantidade || 0;
-    const subtotal = parseFloat(resumoPedidos[0].subtotal) || 0;
+    const [resumoCarrinho] = await pool.query(`
+      SELECT 
+        COUNT(*) AS quantidade,
+        COALESCE(SUM(valor_total), 0) AS subtotal
+      FROM pedidosCarrinho
+      WHERE id_cliente = ?
+    `, [idCliente]);
+
+    const quantidade = (resumoPedidos[0].quantidade || 0) + (resumoCarrinho[0].quantidade || 0);
+    const subtotal = parseFloat(resumoPedidos[0].subtotal || 0) + parseFloat(resumoCarrinho[0].subtotal || 0);
 
     const taxaServico = 2.50;
     const taxaEntrega = 5.00;
