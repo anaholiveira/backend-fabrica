@@ -16,17 +16,19 @@ export async function finalizarPedido(req, res) {
       );
 
       const id_novo_pedido = pedidoResult.insertId;
+
       const [ingredientes] = await pool.query(
-        `SELECT ci.id_ingrediente
+        `SELECT ci.id_ingrediente, p.quantidade AS quantidade_pedido_carrinho
          FROM pedidosCarrinho_ingredientes ci
+         JOIN pedidosCarrinho p ON ci.id_pedido_carrinho = p.id_pedido_carrinho
          WHERE ci.id_pedido_carrinho = ?`,
         [pedido.id_pedido_carrinho]
       );
 
       for (const item of ingredientes) {
         await pool.query(
-          `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)`,
-          [id_novo_pedido, item.id_ingrediente, 1]
+          `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, 1)`,
+          [id_novo_pedido, item.id_ingrediente]
         );
       }
 
@@ -43,6 +45,7 @@ export async function finalizarPedido(req, res) {
       listaPedidos.push({
         id_pedido: id_novo_pedido,
         valor_total: pedido.valor_total,
+        quantidade: pedido.quantidade,
       });
     }
 

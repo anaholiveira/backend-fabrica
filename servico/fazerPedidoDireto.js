@@ -25,15 +25,15 @@ export async function fazerPedidoDireto(req, res) {
 
     for (const id_ingrediente of ingredientes) {
       await pool.query(
-        `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)`,
-        [id_pedido, id_ingrediente, 1]
+        `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, 1)`,
+        [id_pedido, id_ingrediente]
       );
     }
 
     res.status(201).json({
       mensagem: 'Pedido enviado para pagamento.',
-      valor_total: valor_total,
-      id_pedido: id_pedido,
+      valor_total,
+      id_pedido,
     });
   } catch (err) {
     console.error('Erro ao fazer pedido direto:', err);
