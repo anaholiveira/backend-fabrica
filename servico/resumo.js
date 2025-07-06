@@ -14,6 +14,7 @@ export async function getResumoPedido(idCliente) {
     const [rows] = await pool.query(`
       SELECT
         SUM(i.valor * pi.quantidade) AS subtotal_calculado,
+        -- Contar a quantidade total de cupcakes com base nos ingredientes 'tamanho'
         SUM(CASE WHEN i.tipo = 'tamanho' THEN pi.quantidade ELSE 0 END) AS quantidade_cupcakes_total
       FROM pedidos p
       JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
@@ -24,7 +25,7 @@ export async function getResumoPedido(idCliente) {
 
     const subtotal = parseFloat(rows[0].subtotal_calculado) || 0;
     const quantidade = parseInt(rows[0].quantidade_cupcakes_total) || 0;
-    
+
     const taxaServico = 2.50;
     const taxaEntrega = 5.00;
     const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
