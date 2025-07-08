@@ -6,37 +6,27 @@ export async function getResumoPedido(idCliente) {
       throw new Error('ID de cliente inválido. Deve ser um número maior que 0.');
     }
 
+    const [pedidosDiretos] = await pool.query(
+      `SELECT quantidade, valor_total FROM pedidos WHERE id_cliente = ? AND status = 'aguardando'`,
+      [idCliente]
+    );
+
+    const [pedidosCarrinho] = await pool.query(
+      `SELECT quantidade, valor_total FROM pedidosCarrinho WHERE id_cliente = ?`,
+      [idCliente]
+    );
+
     let quantidadeTotal = 0;
     let subtotal = 0;
 
-    const [diretos] = await pool.query(`
-      SELECT pi.quantidade, i.valor, i.tipo
-      FROM pedidos p
-      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
-      JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      WHERE p.id_cliente = ? AND p.status = 'aguardando'
-    `, [idCliente]);
-
-    for (const item of diretos) {
-      subtotal += item.valor * item.quantidade;
-      if (item.tipo === 'tamanho') {
-        quantidadeTotal += item.quantidade;
-      }
+    for (const pedido of pedidosDiretos) {
+      quantidadeTotal += pedido.quantidade || 0;
+      subtotal += parseFloat(pedido.valor_total) || 0;
     }
 
-    const [carrinho] = await pool.query(`
-      SELECT pci.id_ingrediente, pc.quantidade, i.valor, i.tipo
-      FROM pedidosCarrinho pc
-      JOIN pedidosCarrinho_ingredientes pci ON pc.id_pedido_carrinho = pci.id_pedido_carrinho
-      JOIN ingredientes i ON pci.id_ingrediente = i.id_ingrediente
-      WHERE pc.id_cliente = ?
-    `, [idCliente]);
-
-    for (const item of carrinho) {
-      subtotal += item.valor * item.quantidade;
-      if (item.tipo === 'tamanho') {
-        quantidadeTotal += item.quantidade;
-      }
+    for (const pedido of pedidosCarrinho) {
+      quantidadeTotal += pedido.quantidade || 0;
+      subtotal += parseFloat(pedido.valor_total) || 0;
     }
 
     const taxaServico = 2.50;
@@ -48,9 +38,8 @@ export async function getResumoPedido(idCliente) {
       subtotal: parseFloat(subtotal.toFixed(2)),
       taxaServico,
       taxaEntrega,
-      total
+      total,
     };
-
   } catch (error) {
     throw error;
   }
