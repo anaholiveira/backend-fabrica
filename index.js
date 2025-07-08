@@ -54,15 +54,6 @@ app.get('/resumo/:idCliente', async (req, res) => {
   }
 });
 
-app.post('/resumo', async (req, res) => {
-  try {
-    const resposta = await registrarResumoPedido(req.body);
-    res.status(201).json(resposta);
-  } catch (error) {
-    res.status(400).json({ erro: error.message });
-  }
-});
-
 app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
   const { idCliente } = req.params;
 
@@ -73,6 +64,15 @@ app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
   try {
     const resultado = await apagarPedidosAguardando(idCliente);
     res.json(resultado);
+  } catch (error) {
+    res.status(400).json({ erro: error.message });
+  }
+});
+
+app.post('/resumo', async (req, res) => {
+  try {
+    const resposta = await registrarResumoPedido(req.body);
+    res.status(201).json(resposta);
   } catch (error) {
     res.status(400).json({ erro: error.message });
   }

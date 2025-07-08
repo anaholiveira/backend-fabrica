@@ -1,25 +1,17 @@
 import pool from './conexao.js';
 
-export async function getResumoPedido(idCliente) {
+export async function getResumoPedido(req, res) {
+  const idCliente = req.params.id_cliente;
+
   try {
-    if (isNaN(idCliente) || idCliente <= 0) {
-      throw new Error('ID de cliente inválido. Deve ser um número maior que 0.');
-    }
-
-    const [cliente] = await pool.query('SELECT id_cliente FROM clientes WHERE id_cliente = ?', [idCliente]);
-    if (cliente.length === 0) {
-      return { erro: 'Cliente não encontrado.' };
-    }
-
     const [rows] = await pool.query(`
-      SELECT
+      SELECT 
         SUM(i.valor * pi.quantidade) AS subtotal,
         SUM(CASE WHEN i.tipo = 'tamanho' THEN pi.quantidade ELSE 0 END) AS quantidade
       FROM pedidos p
       JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      WHERE p.id_cliente = ? 
-        AND p.status = 'aguardando'
+      WHERE p.id_cliente = ? AND p.status = 'aguardando'
     `, [idCliente]);
 
     const subtotal = parseFloat(rows[0].subtotal) || 0;
@@ -28,26 +20,24 @@ export async function getResumoPedido(idCliente) {
     const taxaEntrega = 5.00;
     const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
 
-    return { quantidade, subtotal, taxaServico, taxaEntrega, total };
-
+    res.json({ quantidade, subtotal, taxaServico, taxaEntrega, total });
   } catch (error) {
-    throw error;
+    console.error("Erro ao buscar resumo:", error);
+    res.status(500).json({ erro: 'Erro ao buscar resumo do pedido' });
   }
 }
 
-export async function apagarPedidosAguardando(idCliente) {
-  try {
-    if (isNaN(idCliente) || idCliente <= 0) {
-      throw new Error('ID de cliente inválido.');
-    }
+export async function apagarPedidosAguardando(req, res) {
+  const idCliente = req.params.id_cliente;
 
+  try {
     const [pedidos] = await pool.query(
       'SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando"',
       [idCliente]
     );
 
     if (pedidos.length === 0) {
-      return { mensagem: 'Nenhum pedido com status "aguardando" encontrado para este cliente.' };
+      return res.json({ mensagem: 'Nenhum pedido para apagar.' });
     }
 
     const ids = pedidos.map(p => p.id_pedido);
@@ -55,18 +45,18 @@ export async function apagarPedidosAguardando(idCliente) {
     await pool.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
     await pool.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
 
-    return { mensagem: 'Pedidos com status "aguardando" apagados com sucesso.' };
-
+    res.json({ mensagem: 'Pedidos apagados com sucesso.' });
   } catch (error) {
-    throw error;
+    console.error("Erro ao apagar pedidos:", error);
+    res.status(500).json({ erro: 'Erro ao apagar pedidos' });
   }
 }
 
-export async function registrarResumoPedido(resumo) {
-  const { id_cliente, forma_pagamento, valor_total, quantidade, taxaServico, taxaEntrega } = resumo;
+export async function registrarResumoPedido(req, res) {
+  const { id_cliente, forma_pagamento, valor_total, quantidade, taxaServico, taxaEntrega } = req.body;
 
   if (!id_cliente || !forma_pagamento || !valor_total || !quantidade) {
-    throw new Error('Dados incompletos. Verifique os campos enviados.');
+    return res.status(400).json({ erro: 'Dados incompletos.' });
   }
 
   const conn = await pool.getConnection();
@@ -85,12 +75,12 @@ export async function registrarResumoPedido(resumo) {
     );
 
     if (carrinhos.length > 0) {
-      const [pedidoResult] = await conn.query(
+      const [novoPedido] = await conn.query(
         'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
         [id_cliente, valor_total, forma_pagamento, 'aguardando']
       );
 
-      const novoPedidoId = pedidoResult.insertId;
+      const novoPedidoId = novoPedido.insertId;
 
       for (const carrinho of carrinhos) {
         const [ingredientes] = await conn.query(
@@ -114,11 +104,11 @@ export async function registrarResumoPedido(resumo) {
     }
 
     await conn.commit();
-
-    return { mensagem: 'Resumo do pedido registrado com sucesso.' };
+    res.status(201).json({ mensagem: 'Pedido finalizado com sucesso!' });
   } catch (error) {
     await conn.rollback();
-    throw error;
+    console.error("Erro ao registrar resumo:", error);
+    res.status(500).json({ erro: 'Erro ao finalizar o pedido' });
   } finally {
     conn.release();
   }
