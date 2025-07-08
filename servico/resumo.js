@@ -74,40 +74,26 @@ export async function registrarResumoPedido(resumo) {
   try {
     await conn.beginTransaction();
 
-    const [pedidos] = await conn.query(
-      'SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando"',
-      [id_cliente]
-    );
-    if (pedidos.length > 0) {
-      const ids = pedidos.map(p => p.id_pedido);
-      await conn.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
-      await conn.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
-    }
-
     const [pedidoResult] = await conn.query(
-      'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
-      [id_cliente, valor_total, forma_pagamento, 'aguardando']
+      'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status, quantidade) VALUES (?, ?, ?, ?, ?)',
+      [id_cliente, valor_total, forma_pagamento, 'aguardando', quantidade]
     );
 
     const novoPedidoId = pedidoResult.insertId;
 
-    const [carrinhos] = await conn.query(
-      'SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?',
-      [id_cliente]
-    );
+    const [ingredientes] = await conn.query(`
+      SELECT pi.id_ingrediente, SUM(pi.quantidade) AS total
+      FROM pedidos p
+      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
+      WHERE p.id_cliente = ? AND p.status = 'aguardando'
+      GROUP BY pi.id_ingrediente
+    `, [id_cliente]);
 
-    for (const carrinho of carrinhos) {
-      const [ingredientes] = await conn.query(
-        'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
-        [carrinho.id_pedido_carrinho]
+    for (const item of ingredientes) {
+      await conn.query(
+        'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
+        [novoPedidoId, item.id_ingrediente, item.total]
       );
-
-      for (const ing of ingredientes) {
-        await conn.query(
-          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
-          [novoPedidoId, ing.id_ingrediente, 1]
-        );
-      }
     }
 
     await conn.query(
