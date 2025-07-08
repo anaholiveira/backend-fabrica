@@ -57,11 +57,13 @@ export async function getResumoPedidosJuntos(idCliente) {
     `, [idCliente]);
 
     const [pedidosCarrinho] = await pool.query(`
-      SELECT
-        COALESCE(SUM(valor_total), 0) AS subtotal,
-        COALESCE(SUM(quantidade), 0) AS quantidade
-      FROM pedidosCarrinho
-      WHERE id_cliente = ?
+      SELECT 
+        COALESCE(SUM(i.valor * pci.quantidade), 0) AS subtotal,
+        COALESCE(SUM(CASE WHEN i.tipo = 'tamanho' THEN pci.quantidade ELSE 0 END), 0) AS quantidade
+      FROM pedidosCarrinho pc
+      JOIN pedidosCarrinho_ingredientes pci ON pc.id_pedido_carrinho = pci.id_pedido_carrinho
+      JOIN ingredientes i ON pci.id_ingrediente = i.id_ingrediente
+      WHERE pc.id_cliente = ?
     `, [idCliente]);
 
     const subtotalTotal = parseFloat(pedidosDiretos[0].subtotal) + parseFloat(pedidosCarrinho[0].subtotal);
