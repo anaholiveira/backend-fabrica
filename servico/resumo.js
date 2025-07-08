@@ -74,41 +74,48 @@ export async function registrarResumoPedido(resumo) {
   try {
     await conn.beginTransaction();
 
-    const [pedidoResult] = await conn.query(
-      'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
-      [id_cliente, valor_total, forma_pagamento, 'aguardando']
+    await conn.query(
+      'UPDATE pedidos SET forma_pagamento = ? WHERE id_cliente = ? AND status = "aguardando"',
+      [forma_pagamento, id_cliente]
     );
-
-    const novoPedidoId = pedidoResult.insertId;
 
     const [carrinhos] = await conn.query(
       'SELECT id_pedido_carrinho, quantidade FROM pedidosCarrinho WHERE id_cliente = ?',
       [id_cliente]
     );
 
-    for (const carrinho of carrinhos) {
-      const [ingredientes] = await conn.query(
-        'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
-        [carrinho.id_pedido_carrinho]
+    if (carrinhos.length > 0) {
+      const [pedidoResult] = await conn.query(
+        'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
+        [id_cliente, valor_total, forma_pagamento, 'aguardando']
       );
 
-      for (const ing of ingredientes) {
-        await conn.query(
-          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
-          [novoPedidoId, ing.id_ingrediente, carrinho.quantidade]
-        );
-      }
-    }
+      const novoPedidoId = pedidoResult.insertId;
 
-    await conn.query(
-      'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
-      [id_cliente]
-    );
-    await conn.query('DELETE FROM pedidosCarrinho WHERE id_cliente = ?', [id_cliente]);
+      for (const carrinho of carrinhos) {
+        const [ingredientes] = await conn.query(
+          'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
+          [carrinho.id_pedido_carrinho]
+        );
+
+        for (const ing of ingredientes) {
+          await conn.query(
+            'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
+            [novoPedidoId, ing.id_ingrediente, carrinho.quantidade]
+          );
+        }
+      }
+
+      await conn.query(
+        'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
+        [id_cliente]
+      );
+      await conn.query('DELETE FROM pedidosCarrinho WHERE id_cliente = ?', [id_cliente]);
+    }
 
     await conn.commit();
 
-    return { mensagem: 'Resumo do pedido registrado com sucesso.', id_pedido: novoPedidoId };
+    return { mensagem: 'Resumo do pedido registrado com sucesso.' };
   } catch (error) {
     await conn.rollback();
     throw error;
