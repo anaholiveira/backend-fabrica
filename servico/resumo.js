@@ -20,13 +20,17 @@ export async function getResumoPedido(idCliente) {
     let subtotal = 0;
 
     for (const pedido of pedidosDiretos) {
-      quantidadeTotal += pedido.quantidade || 0;
-      subtotal += parseFloat(pedido.valor_total) || 0;
+      const qtd = pedido.quantidade == null ? 1 : pedido.quantidade;
+      const valor = pedido.valor_total == null ? 0 : parseFloat(pedido.valor_total);
+      quantidadeTotal += qtd;
+      subtotal += valor;
     }
 
     for (const pedido of pedidosCarrinho) {
-      quantidadeTotal += pedido.quantidade || 0;
-      subtotal += parseFloat(pedido.valor_total) || 0;
+      const qtd = pedido.quantidade == null ? 1 : pedido.quantidade;
+      const valor = pedido.valor_total == null ? 0 : parseFloat(pedido.valor_total);
+      quantidadeTotal += qtd;
+      subtotal += valor;
     }
 
     const taxaServico = 2.50;
@@ -41,7 +45,6 @@ export async function getResumoPedido(idCliente) {
       taxaEntrega,
       total,
     };
-
   } catch (error) {
     throw error;
   }
