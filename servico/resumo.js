@@ -74,16 +74,6 @@ export async function registrarResumoPedido(resumo) {
   try {
     await conn.beginTransaction();
 
-    const [pedidos] = await conn.query(
-      'SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando"',
-      [id_cliente]
-    );
-    if (pedidos.length > 0) {
-      const ids = pedidos.map(p => p.id_pedido);
-      await conn.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
-      await conn.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
-    }
-
     const [pedidoResult] = await conn.query(
       'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
       [id_cliente, valor_total, forma_pagamento, 'aguardando']
@@ -92,7 +82,7 @@ export async function registrarResumoPedido(resumo) {
     const novoPedidoId = pedidoResult.insertId;
 
     const [carrinhos] = await conn.query(
-      'SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?',
+      'SELECT id_pedido_carrinho, quantidade FROM pedidosCarrinho WHERE id_cliente = ?',
       [id_cliente]
     );
 
@@ -105,7 +95,7 @@ export async function registrarResumoPedido(resumo) {
       for (const ing of ingredientes) {
         await conn.query(
           'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
-          [novoPedidoId, ing.id_ingrediente, 1]
+          [novoPedidoId, ing.id_ingrediente, carrinho.quantidade]
         );
       }
     }
