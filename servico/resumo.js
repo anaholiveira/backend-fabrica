@@ -14,7 +14,7 @@ export async function getResumoPedido(idCliente) {
     const [rows] = await pool.query(`
       SELECT
         SUM(i.valor * pi.quantidade) AS subtotal,
-        SUM(pi.quantidade) AS quantidade
+        COUNT(DISTINCT p.id_pedido) AS quantidade
       FROM pedidos p
       JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
