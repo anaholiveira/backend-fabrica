@@ -12,7 +12,7 @@ import { listarCarrinho } from './servico/listarCarrinho.js';
 import { excluirPedidoCarrinho } from './servico/excluirPedidoCarrinho.js';
 import { finalizarPedido } from './servico/finalizarPedido.js';
 import { fazerPedidoDireto } from './servico/fazerPedidoDireto.js';
-import { getResumoPedido, apagarPedidosAguardando, registrarResumoPedido } from './servico/resumo.js';
+import { getResumoPedido, apagarPedidosAguardando, registrarResumoPedido, getResumoPedidosJuntos} from './servico/resumo.js';
 import { adicionarEndereco, listarEnderecos } from './servico/endereco.js';
 import { listarIngredientesPorTipo, adicionarIngrediente, excluirIngrediente } from './servico/ingredienteServico.js';
 import { listarFeedbacks, adicionarFeedback, excluirFeedback } from './servico/feedbackServico.js';
@@ -75,6 +75,21 @@ app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
     res.json(resultado);
   } catch (error) {
     res.status(400).json({ erro: error.message });
+  }
+});
+
+app.get('/resumoPedidosJuntos/:idCliente', async (req, res) => {
+  const { idCliente } = req.params;
+
+  if (isNaN(idCliente) || idCliente <= 0) {
+    return res.status(400).json({ erro: 'ID de cliente inválido. Deve ser um número maior que 0.' });
+  }
+
+  try {
+    const resumo = await getResumoPedidosJuntos(idCliente);
+    res.json(resumo);
+  } catch (error) {
+    res.status(500).json({ erro: 'Erro ao buscar resumo dos pedidos juntos.' });
   }
 });
 

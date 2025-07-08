@@ -35,6 +35,55 @@ export async function getResumoPedido(idCliente) {
   }
 }
 
+export async function getResumoPedidosJuntos(idCliente) {
+  try {
+    if (isNaN(idCliente) || idCliente <= 0) {
+      throw new Error('ID de cliente inválido. Deve ser um número maior que 0.');
+    }
+
+    const [cliente] = await pool.query('SELECT id_cliente FROM clientes WHERE id_cliente = ?', [idCliente]);
+    if (cliente.length === 0) {
+      return { erro: 'Cliente não encontrado.' };
+    }
+
+    const [pedidosDiretos] = await pool.query(`
+      SELECT
+        COALESCE(SUM(i.valor * pi.quantidade), 0) AS subtotal,
+        COALESCE(SUM(CASE WHEN i.tipo = 'tamanho' THEN pi.quantidade ELSE 0 END), 0) AS quantidade
+      FROM pedidos p
+      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
+      JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
+      WHERE p.id_cliente = ? AND p.status = 'aguardando'
+    `, [idCliente]);
+
+    const [pedidosCarrinho] = await pool.query(`
+      SELECT
+        COALESCE(SUM(valor_total), 0) AS subtotal,
+        COALESCE(SUM(quantidade), 0) AS quantidade
+      FROM pedidosCarrinho
+      WHERE id_cliente = ?
+    `, [idCliente]);
+
+    const subtotalTotal = parseFloat(pedidosDiretos[0].subtotal) + parseFloat(pedidosCarrinho[0].subtotal);
+    const quantidadeTotal = parseInt(pedidosDiretos[0].quantidade) + parseInt(pedidosCarrinho[0].quantidade);
+
+    const taxaServico = 2.50;
+    const taxaEntrega = 5.00;
+    const total = parseFloat((subtotalTotal + taxaServico + taxaEntrega).toFixed(2));
+
+    return {
+      quantidade: quantidadeTotal,
+      subtotal: subtotalTotal,
+      taxaServico,
+      taxaEntrega,
+      total,
+    };
+
+  } catch (error) {
+    throw error;
+  }
+}
+
 export async function apagarPedidosAguardando(idCliente) {
   try {
     if (isNaN(idCliente) || idCliente <= 0) {
@@ -85,14 +134,14 @@ export async function registrarResumoPedido(resumo) {
     }
 
     const [pedidoResult] = await conn.query(
-      'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
-      [id_cliente, valor_total, forma_pagamento, 'aguardando']
+      'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status, quantidade) VALUES (?, ?, ?, ?, ?)',
+      [id_cliente, valor_total, forma_pagamento, 'aguardando', quantidade]
     );
 
     const novoPedidoId = pedidoResult.insertId;
 
     const [carrinhos] = await conn.query(
-      'SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?',
+      'SELECT id_pedido_carrinho, quantidade FROM pedidosCarrinho WHERE id_cliente = ?',
       [id_cliente]
     );
 
@@ -105,7 +154,7 @@ export async function registrarResumoPedido(resumo) {
       for (const ing of ingredientes) {
         await conn.query(
           'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
-          [novoPedidoId, ing.id_ingrediente, 1]
+          [novoPedidoId, ing.id_ingrediente, carrinho.quantidade || 1]
         );
       }
     }
