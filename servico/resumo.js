@@ -52,11 +52,11 @@ export async function apagarPedidosAguardando(req, res) {
   }
 }
 
-export async function registrarResumoPedido(req, res) {
-  const { id_cliente, forma_pagamento, valor_total, quantidade, taxaServico, taxaEntrega } = req.body;
+export async function registrarResumoPedido(dados) {
+  const { id_cliente, forma_pagamento, valor_total, quantidade, taxaServico, taxaEntrega } = dados;
 
   if (!id_cliente || !forma_pagamento || !valor_total || !quantidade) {
-    return res.status(400).json({ erro: 'Dados incompletos.' });
+    throw new Error('Dados incompletos.');
   }
 
   const conn = await pool.getConnection();
@@ -104,11 +104,11 @@ export async function registrarResumoPedido(req, res) {
     }
 
     await conn.commit();
-    res.status(201).json({ mensagem: 'Pedido finalizado com sucesso!' });
+
+    return { mensagem: 'Pedido finalizado com sucesso!' };
   } catch (error) {
     await conn.rollback();
-    console.error("Erro ao registrar resumo:", error);
-    res.status(500).json({ erro: 'Erro ao finalizar o pedido' });
+    throw new Error('Erro ao finalizar o pedido: ' + error.message);
   } finally {
     conn.release();
   }
