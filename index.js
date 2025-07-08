@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
 import { cadastrarCliente } from './servico/cadastrarClientes.js';
 import { listarClientes } from './servico/listarClientes.js';
 import { loginCliente } from './servico/loginClientes.js';
@@ -12,14 +13,16 @@ import { listarCarrinho } from './servico/listarCarrinho.js';
 import { excluirPedidoCarrinho } from './servico/excluirPedidoCarrinho.js';
 import { finalizarPedido } from './servico/finalizarPedido.js';
 import { fazerPedidoDireto } from './servico/fazerPedidoDireto.js';
-import { getResumoPedido, apagarPedidosAguardando, registrarResumoPedido, getResumoPedidosJuntos} from './servico/resumo.js';
+import { getResumoPedido, apagarPedidosAguardando, registrarResumoPedido, getResumoPedidosJuntos } from './servico/resumo.js';
 import { adicionarEndereco, listarEnderecos } from './servico/endereco.js';
 import { listarIngredientesPorTipo, adicionarIngrediente, excluirIngrediente } from './servico/ingredienteServico.js';
 import { listarFeedbacks, adicionarFeedback, excluirFeedback } from './servico/feedbackServico.js';
 import { relatorioPedidos } from './servico/relatorio.js';
 
 dotenv.config();
+
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
@@ -40,14 +43,19 @@ app.post('/fazerPedidoDireto', fazerPedidoDireto);
 app.get('/relatorio', relatorioPedidos);
 
 app.get('/resumo/:idCliente', async (req, res) => {
-  const { idCliente } = req.params;
-
-  if (isNaN(idCliente) || idCliente <= 0) {
-    return res.status(400).json({ erro: 'ID de cliente inválido. Deve ser um número maior que 0.' });
-  }
-
   try {
+    const idCliente = parseInt(req.params.idCliente);
     const resumo = await getResumoPedido(idCliente);
+    res.json(resumo);
+  } catch (error) {
+    res.status(400).json({ erro: error.message });
+  }
+});
+
+app.get('/resumoJuntos/:idCliente', async (req, res) => {
+  try {
+    const idCliente = parseInt(req.params.idCliente);
+    const resumo = await getResumoPedidosJuntos(idCliente);
     res.json(resumo);
   } catch (error) {
     res.status(400).json({ erro: error.message });
@@ -64,32 +72,12 @@ app.post('/resumo', async (req, res) => {
 });
 
 app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
-  const { idCliente } = req.params;
-
-  if (isNaN(idCliente) || idCliente <= 0) {
-    return res.status(400).json({ erro: 'ID de cliente inválido. Deve ser um número maior que 0.' });
-  }
-
   try {
+    const idCliente = parseInt(req.params.idCliente);
     const resultado = await apagarPedidosAguardando(idCliente);
     res.json(resultado);
   } catch (error) {
     res.status(400).json({ erro: error.message });
-  }
-});
-
-app.get('/resumoPedidosJuntos/:idCliente', async (req, res) => {
-  const { idCliente } = req.params;
-
-  if (isNaN(idCliente) || idCliente <= 0) {
-    return res.status(400).json({ erro: 'ID de cliente inválido. Deve ser um número maior que 0.' });
-  }
-
-  try {
-    const resumo = await getResumoPedidosJuntos(idCliente);
-    res.json(resumo);
-  } catch (error) {
-    res.status(500).json({ erro: 'Erro ao buscar resumo dos pedidos juntos.' });
   }
 });
 
@@ -112,24 +100,9 @@ app.get('/enderecos', async (req, res) => {
   }
 });
 
-function formatarDataHora(data) {
-  const options = { 
-    year: 'numeric', 
-    month: '2-digit', 
-    day: '2-digit', 
-    hour: '2-digit', 
-    minute: '2-digit', 
-    second: '2-digit',
-    hour12: false
-  };
-  const novaData = new Date(data); 
-  return novaData.toLocaleString('pt-BR', options); 
-}
-
 app.get('/ingredientes/:tipo', async (req, res) => {
-  const { tipo } = req.params;
   try {
-    const ingredientes = await listarIngredientesPorTipo(tipo);
+    const ingredientes = await listarIngredientesPorTipo(req.params.tipo);
     res.json(ingredientes);
   } catch (error) {
     res.status(400).json({ erro: error.message });
@@ -137,8 +110,8 @@ app.get('/ingredientes/:tipo', async (req, res) => {
 });
 
 app.post('/ingredientes', async (req, res) => {
-  const { nome, tipo, valor } = req.body;
   try {
+    const { nome, tipo, valor } = req.body;
     const novo = await adicionarIngrediente({ nome, tipo, valor });
     res.status(201).json(novo);
   } catch (error) {
@@ -147,15 +120,11 @@ app.post('/ingredientes', async (req, res) => {
 });
 
 app.delete('/ingredientes/:id', async (req, res) => {
-  const { id } = req.params;
   try {
-    const sucesso = await excluirIngrediente(id);
-    if (sucesso) {
-      res.json({ mensagem: 'Ingrediente excluído com sucesso' });
-    } else {
-      res.status(404).json({ erro: 'Ingrediente não encontrado' });
-    }
-  } catch (error) {
+    const sucesso = await excluirIngrediente(req.params.id);
+    if (sucesso) res.json({ mensagem: 'Ingrediente excluído com sucesso' });
+    else res.status(404).json({ erro: 'Ingrediente não encontrado' });
+  } catch {
     res.status(500).json({ erro: 'Erro ao excluir ingrediente' });
   }
 });
@@ -163,43 +132,32 @@ app.delete('/ingredientes/:id', async (req, res) => {
 app.get('/feedbacks', async (req, res) => {
   try {
     const feedbacks = await listarFeedbacks();
-    const feedbacksFormatados = feedbacks.map(feedback => {
-      const dataFormatada = formatarDataHora(feedback.data_criacao); 
-      return {
-        ...feedback,
-        data_criacao: dataFormatada 
-      };
-    });
-    res.json(feedbacksFormatados);
+    res.json(feedbacks);
   } catch (error) {
     res.status(400).json({ erro: error.message });
   }
 });
 
 app.post('/feedbacks', async (req, res) => {
-  const { id_cliente, estrelas, comentario, foto } = req.body;
   try {
+    const { id_cliente, estrelas, comentario, foto } = req.body;
     const novoFeedback = await adicionarFeedback({ id_cliente, estrelas, comentario, foto });
     res.status(201).json({ id: novoFeedback.id || novoFeedback, mensagem: 'Feedback adicionado com sucesso' });
-  } catch (error) {
+  } catch {
     res.status(400).json({ erro: 'Não foi possível cadastrar o feedback' });
   }
 });
 
 app.delete('/feedbacks/:id', async (req, res) => {
-  const { id } = req.params;
   try {
-    const sucesso = await excluirFeedback(id);
-    if (sucesso) {
-      res.json({ mensagem: 'Feedback excluído com sucesso' });
-    } else {
-      res.status(404).json({ erro: 'Feedback não encontrado' });
-    }
-  } catch (error) {
+    const sucesso = await excluirFeedback(req.params.id);
+    if (sucesso) res.json({ mensagem: 'Feedback excluído com sucesso' });
+    else res.status(404).json({ erro: 'Feedback não encontrado' });
+  } catch {
     res.status(500).json({ erro: 'Erro ao excluir feedback' });
   }
 });
 
 app.listen(9000, () => {
-  console.log(`Servidor rodando em http://localhost:9000`);
+  console.log('Servidor rodando em http://localhost:9000');
 });
