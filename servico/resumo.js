@@ -83,53 +83,50 @@ export async function apagarPedidosAguardando(idCliente) {
   }
 }
 
-export async function registrarResumoPedido(resumo) {
-  const { id_cliente, forma_pagamento, valor_total, quantidade, taxaServico, taxaEntrega } = resumo;
-
-  if (!id_cliente || !forma_pagamento || !valor_total || !quantidade) {
-    throw new Error('Dados incompletos. Verifique os campos enviados.');
-  }
-
-  const conn = await pool.getConnection();
-
+export async function getResumoPedido(idCliente) {
   try {
-    await conn.beginTransaction();
-
-    const [pedidoResult] = await conn.query(
-      'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status, quantidade) VALUES (?, ?, ?, ?, ?)',
-      [id_cliente, valor_total, forma_pagamento, 'aguardando', quantidade]
-    );
-
-    const novoPedidoId = pedidoResult.insertId;
-
-    const [ingredientes] = await conn.query(`
-      SELECT pi.id_ingrediente, SUM(pi.quantidade) AS total
-      FROM pedidos p
-      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
-      WHERE p.id_cliente = ? AND p.status = 'aguardando'
-      GROUP BY pi.id_ingrediente
-    `, [id_cliente]);
-
-    for (const item of ingredientes) {
-      await conn.query(
-        'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
-        [novoPedidoId, item.id_ingrediente, item.total]
-      );
+    if (isNaN(idCliente) || idCliente <= 0) {
+      throw new Error('ID de cliente inválido. Deve ser um número maior que 0.');
     }
 
-    await conn.query(
-      'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
-      [id_cliente]
-    );
-    await conn.query('DELETE FROM pedidosCarrinho WHERE id_cliente = ?', [id_cliente]);
+    let quantidadeTotal = 0;
+    let subtotal = 0;
 
-    await conn.commit();
+    const [pedidosDiretos] = await pool.query(`
+      SELECT quantidade, valor_total
+      FROM pedidos
+      WHERE id_cliente = ? AND status = 'aguardando'
+    `, [idCliente]);
 
-    return { mensagem: 'Resumo do pedido registrado com sucesso.', id_pedido: novoPedidoId };
+    for (const pedido of pedidosDiretos) {
+      quantidadeTotal += pedido.quantidade;
+      subtotal += parseFloat(pedido.valor_total);
+    }
+
+    const [pedidosCarrinho] = await pool.query(`
+      SELECT quantidade, valor_total
+      FROM pedidosCarrinho
+      WHERE id_cliente = ?
+    `, [idCliente]);
+
+    for (const carrinho of pedidosCarrinho) {
+      quantidadeTotal += carrinho.quantidade;
+      subtotal += parseFloat(carrinho.valor_total);
+    }
+
+    const taxaServico = 2.50;
+    const taxaEntrega = 5.00;
+    const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
+
+    return {
+      quantidade: quantidadeTotal,
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      taxaServico,
+      taxaEntrega,
+      total
+    };
+
   } catch (error) {
-    await conn.rollback();
     throw error;
-  } finally {
-    conn.release();
   }
 }
