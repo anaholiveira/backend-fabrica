@@ -8,7 +8,7 @@ export async function getResumoPedido(idCliente) {
     const [result] = await conn.query(
       `
       SELECT
-        COUNT(*) AS quantidade,
+        COALESCE(SUM(c.quantidade), 0) AS quantidade,
         COALESCE(SUM(c.quantidade * cup.preco), 0) AS total,
         COALESCE(SUM(c.quantidade * cup.preco) * 0.1, 0) AS taxaServico,
         5.00 AS taxaEntrega
@@ -19,14 +19,14 @@ export async function getResumoPedido(idCliente) {
       [idCliente]
     );
 
-    const resumo = {
-      quantidade: result[0].quantidade || 0,
-      total: parseFloat(result[0].total || 0),
-      taxaServico: parseFloat(result[0].taxaServico || 0),
-      taxaEntrega: parseFloat(result[0].taxaEntrega || 0),
-    };
+    const resumo = result[0];
 
-    return resumo;
+    return {
+      quantidade: resumo.quantidade,
+      total: parseFloat(resumo.total),
+      taxaServico: parseFloat(resumo.taxaServico),
+      taxaEntrega: parseFloat(resumo.taxaEntrega),
+    };
 
   } catch (error) {
     console.error('Erro em getResumoPedido:', error);
