@@ -74,34 +74,35 @@ export async function registrarResumoPedido(req, res) {
 
   try {
     const [resultado] = await pool.query(
-      `INSERT INTO pedidos (id_cliente, forma_pagamento, valor_total)
-       VALUES (?, ?, ?)`,
+      `INSERT INTO pedidos (id_cliente, forma_pagamento, valor_total, status)
+       VALUES (?, ?, ?, 'aguardando')`,
       [id_cliente, forma_pagamento, valor_total]
     );
 
     const id_pedido = resultado.insertId;
 
     const [ingredientesCarrinho] = await pool.query(
-      `SELECT i.nome, i.tipo 
+      `SELECT pci.id_ingrediente, 1 AS quantidade
        FROM pedidosCarrinho_ingredientes pci
        JOIN pedidosCarrinho pc ON pci.id_pedido_carrinho = pc.id_pedido_carrinho
-       JOIN ingredientes i ON i.id_ingrediente = pci.id_ingrediente
        WHERE pc.id_cliente = ?`,
-       [id_cliente]
+      [id_cliente]
     );
 
-    const ingredientesTexto = ingredientesCarrinho.map(i => `${i.tipo}: ${i.nome}`).join(', ');
-
-    await pool.query(
-      `UPDATE pedidos SET ingredientes = ? WHERE id_pedido = ?`,
-      [ingredientesTexto, id_pedido]
-    );
+    for (const ingrediente of ingredientesCarrinho) {
+      await pool.query(
+        `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade)
+         VALUES (?, ?, ?)`,
+        [id_pedido, ingrediente.id_ingrediente, ingrediente.quantidade]
+      );
+    }
 
     await pool.query(
       `DELETE FROM pedidosCarrinho_ingredientes
        WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)`,
       [id_cliente]
     );
+
     await pool.query(
       `DELETE FROM pedidosCarrinho WHERE id_cliente = ?`,
       [id_cliente]
