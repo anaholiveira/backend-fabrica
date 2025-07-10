@@ -12,7 +12,7 @@ export async function getResumoPedido(idCliente) {
     const [result] = await conn.query(
       `SELECT
         COALESCE(SUM(quantidade), 0) AS quantidade,
-        COALESCE(SUM(valor_total), 0) AS total
+        COALESCE(SUM(valor_total), 0) AS totalCarrinho
       FROM pedidosCarrinho
       WHERE id_cliente = ?`,
       [idCliente]
@@ -20,14 +20,19 @@ export async function getResumoPedido(idCliente) {
 
     const resumo = result[0];
 
-    const taxaServicoFixa = 2.50;
-    const taxaEntregaFixa = 5.00;
+    const taxaServico = 2.50;
+    const taxaEntrega = 5.00;
+
+    const quantidade = Number(resumo.quantidade) || 0;
+    const totalCarrinho = Number(resumo.totalCarrinho) || 0;
+
+    const total = totalCarrinho + taxaServico + taxaEntrega;
 
     return {
-      quantidade: Number(resumo.quantidade) || 0,
-      total: Number(resumo.total) || 0,
-      taxaServico: taxaServicoFixa,
-      taxaEntrega: taxaEntregaFixa,
+      quantidade,
+      taxaServico,
+      taxaEntrega,
+      total,
     };
   } catch (error) {
     console.error('Erro em getResumoPedido:', error);
