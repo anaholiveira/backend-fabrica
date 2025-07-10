@@ -5,6 +5,10 @@ export async function getResumoPedido(idCliente) {
   try {
     conn = await pool.getConnection();
 
+    if (!idCliente || isNaN(idCliente)) {
+      throw new Error('ID de cliente inválido');
+    }
+
     const [result] = await conn.query(
       `
       SELECT
@@ -19,7 +23,14 @@ export async function getResumoPedido(idCliente) {
       [idCliente]
     );
 
-    if (!result || !result[0]) throw new Error('Nenhum dado encontrado');
+    if (!result || result.length === 0) {
+      return {
+        quantidade: 0,
+        total: 0,
+        taxaServico: 0,
+        taxaEntrega: 0,
+      };
+    }
 
     const resumo = result[0];
 
@@ -35,7 +46,7 @@ export async function getResumoPedido(idCliente) {
   } finally {
     if (conn) {
       try {
-        conn.release();
+        await conn.release();
       } catch (releaseError) {
         console.error('Erro ao liberar conexão:', releaseError);
       }
