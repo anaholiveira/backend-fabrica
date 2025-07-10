@@ -59,11 +59,6 @@ export async function registrarResumoPedido(id_cliente, valor_total, forma_pagam
     }
 
     for (const carrinho of carrinhos) {
-      await conn.query(
-        'INSERT INTO pedido_cupcakes (id_pedido, id_cupcake, quantidade, observacao) VALUES (?, ?, ?, ?)',
-        [novoPedidoId, carrinho.id_cupcake, carrinho.quantidade, carrinho.observacao || null]
-      );
-
       const [ingredientes] = await conn.query(
         'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
         [carrinho.id_pedido_carrinho]
@@ -77,12 +72,12 @@ export async function registrarResumoPedido(id_cliente, valor_total, forma_pagam
           );
         }
       }
-
-      await conn.query(
-        'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
-        [carrinho.id_pedido_carrinho]
-      );
     }
+
+    await conn.query(
+      'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (?)',
+      [carrinhos.map(c => c.id_pedido_carrinho)]
+    );
 
     await conn.query(
       'DELETE FROM pedidosCarrinho WHERE id_cliente = ?',
