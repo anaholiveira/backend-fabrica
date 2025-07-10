@@ -6,13 +6,16 @@ export async function getResumoPedido(idCliente) {
     conn = await pool.getConnection();
 
     const [result] = await conn.query(
-      `SELECT
-         COUNT(*) AS quantidade,
-         COALESCE(SUM(valor_total), 0) AS total,
-         COALESCE(SUM(taxa_servico), 0) AS taxaServico,
-         COALESCE(SUM(taxa_entrega), 0) AS taxaEntrega
-       FROM pedidos
-       WHERE id_cliente = ? AND status = 'aguardando'`,
+      `
+      SELECT
+        COUNT(*) AS quantidade,
+        COALESCE(SUM(c.quantidade * cup.preco), 0) AS total,
+        COALESCE(SUM(c.quantidade * cup.preco) * 0.1, 0) AS taxaServico,
+        5.00 AS taxaEntrega
+      FROM pedidosCarrinho c
+      JOIN cupcakes cup ON cup.id_cupcake = c.id_cupcake
+      WHERE c.id_cliente = ?
+      `,
       [idCliente]
     );
 
