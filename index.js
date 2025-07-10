@@ -40,38 +40,42 @@ app.post('/fazerPedidoDireto', fazerPedidoDireto);
 app.get('/relatorio', relatorioPedidos);
 
 app.get('/resumo/:idCliente', async (req, res) => {
+  const { idCliente } = req.params;
+
+  if (isNaN(idCliente) || idCliente <= 0) {
+    return res.status(400).json({ erro: 'ID de cliente inválido. Deve ser um número maior que 0.' });
+  }
+
   try {
-    const idCliente = parseInt(req.params.idCliente);
-    if (isNaN(idCliente) || idCliente <= 0) {
-      return res.status(400).json({ erro: 'ID de cliente inválido' });
-    }
     const resumo = await getResumoPedido(idCliente);
     res.json(resumo);
   } catch (error) {
-    console.error('Erro na rota /resumo:', error);
-    res.status(500).json({ erro: 'Erro interno do servidor' });
+    console.error('Erro ao buscar resumo do pedido:', error);
+    res.status(500).json({ erro: 'Erro interno ao buscar resumo do pedido.' });
   }
 });
 
 app.post('/resumo', async (req, res) => {
   try {
-    console.log('Body recebido:', req.body);
-    const { id_cliente, valor_total, forma_pagamento } = req.body;
+    const { id_cliente, valor_total, forma_pagamento, quantidade, taxaServico, taxaEntrega } = req.body;
 
-    if (!id_cliente || !valor_total || !forma_pagamento) {
+    if (!id_cliente || !valor_total || !forma_pagamento || !quantidade) {
       return res.status(400).json({ erro: 'Dados do pedido incompletos.' });
     }
 
-    const resposta = await registrarResumoPedido(id_cliente, valor_total, forma_pagamento);
+    const resumo = {
+      id_cliente,
+      valor_total,
+      forma_pagamento,
+      quantidade,
+      taxaServico: taxaServico || 2.50,
+      taxaEntrega: taxaEntrega || 5.00,
+    };
 
-    if (resposta.status === 'erro') {
-      console.error('Erro retornado pelo serviço:', resposta.erro);
-      return res.status(500).json({ erro: resposta.erro });
-    }
-
+    const resposta = await registrarResumoPedido(resumo);
     res.status(201).json(resposta);
   } catch (error) {
-    console.error('Erro ao registrar pedido (nível API):', error);
+    console.error('Erro ao registrar pedido:', error);
     res.status(500).json({ erro: 'Erro interno ao registrar pedido.' });
   }
 });

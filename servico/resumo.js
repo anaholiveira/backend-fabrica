@@ -1,52 +1,76 @@
 import pool from './conexao.js';
 
 export async function getResumoPedido(idCliente) {
-  let conn;
   try {
-    if (!idCliente || isNaN(idCliente)) {
-      throw new Error('ID de cliente inválido');
+    if (isNaN(idCliente) || idCliente <= 0) {
+      throw new Error('ID de cliente inválido. Deve ser um número maior que 0.');
     }
 
-    conn = await pool.getConnection();
+    const [cliente] = await pool.query('SELECT id_cliente FROM clientes WHERE id_cliente = ?', [idCliente]);
+    if (cliente.length === 0) {
+      return { erro: 'Cliente não encontrado.' };
+    }
 
-    const [result] = await conn.query(
-      `SELECT
-        COALESCE(SUM(quantidade), 0) AS quantidade,
-        COALESCE(SUM(valor_total), 0) AS totalCarrinho
-      FROM pedidosCarrinho
-      WHERE id_cliente = ?`,
-      [idCliente]
-    );
+    const [rows] = await pool.query(`
+      SELECT
+        SUM(i.valor * pi.quantidade) AS subtotal,
+        SUM(CASE WHEN i.tipo = 'tamanho' THEN pi.quantidade ELSE 0 END) AS quantidade
+      FROM pedidos p
+      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
+      JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
+      WHERE p.id_cliente = ? 
+        AND p.status = 'aguardando'
+    `, [idCliente]);
 
-    const resumo = result[0];
-
+    const subtotal = parseFloat(rows[0].subtotal) || 0;
+    const quantidade = parseInt(rows[0].quantidade) || 0;
     const taxaServico = 2.50;
     const taxaEntrega = 5.00;
+    const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
 
-    const quantidade = Number(resumo.quantidade) || 0;
-    const totalCarrinho = Number(resumo.totalCarrinho) || 0;
-
-    const total = totalCarrinho + taxaServico + taxaEntrega;
-
-    return {
-      quantidade,
-      taxaServico,
-      taxaEntrega,
-      total,
-    };
+    return { quantidade, subtotal, taxaServico, taxaEntrega, total };
   } catch (error) {
-    console.error('Erro em getResumoPedido:', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 }
 
-export async function registrarResumoPedido(id_cliente, valor_total, forma_pagamento) {
-  let conn;
+export async function apagarPedidosAguardando(idCliente) {
+  try {
+    if (isNaN(idCliente) || idCliente <= 0) {
+      throw new Error('ID de cliente inválido.');
+    }
+
+    const [pedidos] = await pool.query(
+      'SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando"',
+      [idCliente]
+    );
+
+    if (pedidos.length === 0) {
+      return { mensagem: 'Nenhum pedido com status "aguardando" encontrado para este cliente.' };
+    }
+
+    const ids = pedidos.map(p => p.id_pedido);
+
+    await pool.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
+    await pool.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
+
+    return { mensagem: 'Pedidos com status "aguardando" apagados com sucesso.' };
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function registrarResumoPedido(resumo) {
+  const { id_cliente, forma_pagamento, valor_total, quantidade, taxaServico, taxaEntrega } = resumo;
+
+  if (!id_cliente || !forma_pagamento || !valor_total || !quantidade) {
+    throw new Error('Dados incompletos. Verifique os campos enviados.');
+  }
+
+  const conn = await pool.getConnection();
 
   try {
-    conn = await pool.getConnection();
+    await conn.beginTransaction();
 
     const [pedidoResult] = await conn.query(
       'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
@@ -56,83 +80,37 @@ export async function registrarResumoPedido(id_cliente, valor_total, forma_pagam
     const novoPedidoId = pedidoResult.insertId;
 
     const [carrinhos] = await conn.query(
-      'SELECT * FROM pedidosCarrinho WHERE id_cliente = ?',
+      'SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?',
       [id_cliente]
     );
 
-    if (!carrinhos || carrinhos.length === 0) {
-      throw new Error('Carrinho vazio. Nada para registrar.');
-    }
-
     for (const carrinho of carrinhos) {
-      await conn.query(
-        'INSERT INTO pedido_cupcakes (id_pedido, id_cupcake, quantidade, observacao) VALUES (?, ?, ?, ?)',
-        [novoPedidoId, carrinho.id_cupcake, carrinho.quantidade, carrinho.observacao || null]
-      );
-
       const [ingredientes] = await conn.query(
         'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
         [carrinho.id_pedido_carrinho]
       );
 
-      if (ingredientes && ingredientes.length > 0) {
-        for (const ing of ingredientes) {
-          await conn.query(
-            'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
-            [novoPedidoId, ing.id_ingrediente, 1]
-          );
-        }
+      for (const ing of ingredientes) {
+        await conn.query(
+          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
+          [novoPedidoId, ing.id_ingrediente, 1]
+        );
       }
-
-      await conn.query(
-        'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
-        [carrinho.id_pedido_carrinho]
-      );
     }
 
     await conn.query(
-      'DELETE FROM pedidosCarrinho WHERE id_cliente = ?',
+      'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
       [id_cliente]
     );
+    await conn.query('DELETE FROM pedidosCarrinho WHERE id_cliente = ?', [id_cliente]);
 
-    return { status: 'ok', id_pedido: novoPedidoId };
+    await conn.commit();
 
+    return { mensagem: 'Resumo do pedido registrado com sucesso.', id_pedido: novoPedidoId };
   } catch (error) {
-    console.error('Erro em registrarResumoPedido:', error);
-    return { status: 'erro', erro: error.message };
+    await conn.rollback();
+    throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.error('Erro ao liberar conexão:', releaseError);
-      }
-    }
-  }
-}
-
-export async function apagarPedidosAguardando(idCliente) {
-  let conn;
-  try {
-    conn = await pool.getConnection();
-
-    const [resultado] = await conn.query(
-      'DELETE FROM pedidos WHERE id_cliente = ? AND status = ?',
-      [idCliente, 'aguardando']
-    );
-
-    return { status: 'ok', afetados: resultado.affectedRows };
-
-  } catch (error) {
-    console.error('Erro em apagarPedidosAguardando:', error);
-    return { status: 'erro', erro: error.message };
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.error('Erro ao liberar conexão:', releaseError);
-      }
-    }
+    conn.release();
   }
 }
