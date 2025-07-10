@@ -55,10 +55,13 @@ app.get('/resumo/:idCliente', async (req, res) => {
 app.post('/resumo', async (req, res) => {
   try {
     const { id_cliente, valor_total, forma_pagamento, quantidade, taxaServico, taxaEntrega } = req.body;
-    if (!id_cliente || !valor_total || !forma_pagamento || !quantidade || !taxaServico || !taxaEntrega) {
+
+    if (!id_cliente || !valor_total || !forma_pagamento || !quantidade) {
       return res.status(400).json({ erro: 'Dados do pedido incompletos.' });
     }
+
     const resposta = await registrarResumoPedido({ id_cliente, valor_total, forma_pagamento, quantidade, taxaServico, taxaEntrega });
+
     res.status(201).json(resposta);
   } catch (error) {
     console.error('Erro ao registrar pedido:', error);
