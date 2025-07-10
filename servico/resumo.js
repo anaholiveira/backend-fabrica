@@ -24,8 +24,8 @@ export async function getResumoPedido(req, res) {
     const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
 
     res.json({ quantidade, subtotal, taxaServico, taxaEntrega, total });
-  } catch (erro) {
-    console.error(erro);
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ erro: 'Erro ao buscar resumo do pedido.' });
   }
 }

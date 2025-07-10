@@ -50,7 +50,7 @@ app.get('/resumo/:idCliente', async (req, res) => {
 });
 
 app.get('/resumo/:idCliente', getResumoPedido);
-
+app.delete('/pedidos/aguardando/:idCliente', apagarPedidosAguardando);
 app.post('/resumo', registrarResumoPedido);
 
 app.post('/endereco', async (req, res) => {
