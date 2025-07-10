@@ -2,11 +2,11 @@ import pool from './conexao.js';
 
 export async function getResumoPedido(req, res) {
   const idCliente = parseInt(req.params.idCliente, 10);
-
+  
   if (isNaN(idCliente) || idCliente <= 0) {
     return res.status(400).json({ erro: 'ID de cliente inválido. Deve ser um número maior que 0.' });
   }
-
+  
   try {
     const [cliente] = await pool.query('SELECT id_cliente FROM clientes WHERE id_cliente = ?', [idCliente]);
     if (cliente.length === 0) {
@@ -23,6 +23,16 @@ export async function getResumoPedido(req, res) {
       WHERE p.id_cliente = ? AND p.status = 'aguardando'
     `, [idCliente]);
 
+    if (!rows || rows.length === 0 || rows[0].subtotal === null) {
+      return res.status(200).json({
+        quantidade: 0,
+        subtotal: 0,
+        taxaServico: 2.5,
+        taxaEntrega: 5.0,
+        total: 7.5,
+      });
+    }
+
     const subtotal = parseFloat(rows[0].subtotal) || 0;
     const quantidade = parseInt(rows[0].quantidade) || 0;
     const taxaServico = 2.50;
@@ -31,7 +41,7 @@ export async function getResumoPedido(req, res) {
 
     return res.status(200).json({ quantidade, subtotal, taxaServico, taxaEntrega, total });
   } catch (error) {
-    console.error(error);
+    console.error('Erro na consulta getResumoPedido:', error);
     return res.status(500).json({ erro: 'Erro interno ao buscar resumo do pedido.' });
   }
 }
