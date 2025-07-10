@@ -57,26 +57,21 @@ app.get('/resumo/:idCliente', async (req, res) => {
 
 app.post('/resumo', async (req, res) => {
   try {
-    console.log('Body recebido:', req.body);
-    const { id_cliente, valor_total, forma_pagamento } = req.body;
+    const resumo = req.body;
 
-    if (!id_cliente || !valor_total || !forma_pagamento) {
+    if (!resumo.id_cliente || !resumo.valor_total || !resumo.forma_pagamento || !resumo.quantidade) {
       return res.status(400).json({ erro: 'Dados do pedido incompletos.' });
     }
 
-    const resposta = await registrarResumoPedido(id_cliente, valor_total, forma_pagamento);
-
-    if (resposta.status === 'erro') {
-      console.error('Erro retornado pelo serviço:', resposta.erro);
-      return res.status(500).json({ erro: resposta.erro });
-    }
+    const resposta = await registrarResumoPedido(resumo);
 
     res.status(201).json(resposta);
   } catch (error) {
-    console.error('Erro ao registrar pedido (nível API):', error);
+    console.error('Erro ao registrar pedido:', error);
     res.status(500).json({ erro: 'Erro interno ao registrar pedido.' });
   }
 });
+
 
 app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
   const { idCliente } = req.params;
@@ -86,6 +81,7 @@ app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
   }
 
   try {
+
     const resultado = await apagarPedidosAguardando(idCliente);
     res.json(resultado);
   } catch (error) {
@@ -93,7 +89,6 @@ app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
     res.status(500).json({ erro: 'Erro interno ao apagar pedidos aguardando.' });
   }
 });
-
 
 app.post('/endereco', async (req, res) => {
   try {
