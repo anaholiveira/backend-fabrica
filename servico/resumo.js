@@ -19,13 +19,15 @@ export async function getResumoPedido(idCliente) {
       [idCliente]
     );
 
+    if (!result || !result[0]) throw new Error('Nenhum dado encontrado');
+
     const resumo = result[0];
 
     return {
-      quantidade: resumo.quantidade || 0,
-      total: parseFloat(resumo.total) || 0,
-      taxaServico: parseFloat(resumo.taxaServico) || 0,
-      taxaEntrega: parseFloat(resumo.taxaEntrega) || 0,
+      quantidade: Number(resumo.quantidade) || 0,
+      total: Number(resumo.total) || 0,
+      taxaServico: Number(resumo.taxaServico) || 0,
+      taxaEntrega: Number(resumo.taxaEntrega) || 0,
     };
   } catch (error) {
     console.error('Erro em getResumoPedido:', error);
@@ -45,8 +47,6 @@ export async function registrarResumoPedido(id_cliente, valor_total, forma_pagam
   let conn;
 
   try {
-    console.log("Iniciando registro do pedido:", { id_cliente, valor_total, forma_pagamento });
-
     conn = await pool.getConnection();
 
     const [pedidoResult] = await conn.query(
@@ -55,21 +55,20 @@ export async function registrarResumoPedido(id_cliente, valor_total, forma_pagam
     );
 
     const novoPedidoId = pedidoResult.insertId;
-    console.log("Pedido criado com ID:", novoPedidoId);
 
     const [carrinhos] = await conn.query(
       'SELECT * FROM pedidosCarrinho WHERE id_cliente = ?',
       [id_cliente]
     );
 
-    if (carrinhos.length === 0) {
+    if (!carrinhos || carrinhos.length === 0) {
       throw new Error('Carrinho vazio. Nada para registrar.');
     }
 
     for (const carrinho of carrinhos) {
       await conn.query(
         'INSERT INTO pedido_cupcakes (id_pedido, id_cupcake, quantidade, observacao) VALUES (?, ?, ?, ?)',
-        [novoPedidoId, carrinho.id_cupcake, carrinho.quantidade, carrinho.observacao]
+        [novoPedidoId, carrinho.id_cupcake, carrinho.quantidade, carrinho.observacao || null]
       );
 
       const [ingredientes] = await conn.query(
@@ -77,11 +76,13 @@ export async function registrarResumoPedido(id_cliente, valor_total, forma_pagam
         [carrinho.id_pedido_carrinho]
       );
 
-      for (const ing of ingredientes) {
-        await conn.query(
-          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
-          [novoPedidoId, ing.id_ingrediente, 1]
-        );
+      if (ingredientes && ingredientes.length > 0) {
+        for (const ing of ingredientes) {
+          await conn.query(
+            'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
+            [novoPedidoId, ing.id_ingrediente, 1]
+          );
+        }
       }
 
       await conn.query(
@@ -95,14 +96,19 @@ export async function registrarResumoPedido(id_cliente, valor_total, forma_pagam
       [id_cliente]
     );
 
-    console.log('Pedido registrado com sucesso');
     return { status: 'ok', id_pedido: novoPedidoId };
 
   } catch (error) {
     console.error('Erro em registrarResumoPedido:', error);
     return { status: 'erro', erro: error.message };
   } finally {
-    if (conn) conn.release();
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Erro ao liberar conexão:', releaseError);
+      }
+    }
   }
 }
 
@@ -122,6 +128,12 @@ export async function apagarPedidosAguardando(idCliente) {
     console.error('Erro em apagarPedidosAguardando:', error);
     return { status: 'erro', erro: error.message };
   } finally {
-    if (conn) conn.release();
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Erro ao liberar conexão:', releaseError);
+      }
+    }
   }
 }
