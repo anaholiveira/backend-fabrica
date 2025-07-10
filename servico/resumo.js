@@ -62,66 +62,54 @@ export async function apagarPedidosAguardando(idCliente) {
   }
 }
 
-export async function registrarResumoPedido(resumo) {
-  const { id_cliente, forma_pagamento, valor_total, quantidade, taxaServico, taxaEntrega } = resumo;
-
-  if (!id_cliente || !forma_pagamento || !valor_total || !quantidade) {
-    throw new Error('Dados incompletos. Verifique os campos enviados.');
-  }
-
-  const conn = await pool.getConnection();
+export async function registrarResumoPedido(req, res) {
+  const {
+    id_cliente,
+    forma_pagamento,
+    quantidade,
+    valor_total,
+    taxaServico,
+    taxaEntrega
+  } = req.body;
 
   try {
-    await conn.beginTransaction();
-
-    const [pedidoResult] = await conn.query(
-      'INSERT INTO pedidos (id_cliente, valor_total, forma_pagamento, status) VALUES (?, ?, ?, ?)',
-      [id_cliente, valor_total, forma_pagamento, 'aguardando']
+    const [resultado] = await pool.query(
+      `INSERT INTO pedidos (id_cliente, forma_pagamento, valor_total)
+       VALUES (?, ?, ?)`,
+      [id_cliente, forma_pagamento, valor_total]
     );
 
-    const novoPedidoId = pedidoResult.insertId;
+    const id_pedido = resultado.insertId;
 
-    const [carrinhos] = await conn.query(
-      'SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?',
+    const [ingredientesCarrinho] = await pool.query(
+      `SELECT i.nome, i.tipo 
+       FROM pedidosCarrinho_ingredientes pci
+       JOIN pedidosCarrinho pc ON pci.id_pedido_carrinho = pc.id_pedido_carrinho
+       JOIN ingredientes i ON i.id_ingrediente = pci.id_ingrediente
+       WHERE pc.id_cliente = ?`,
+       [id_cliente]
+    );
+
+    const ingredientesTexto = ingredientesCarrinho.map(i => `${i.tipo}: ${i.nome}`).join(', ');
+
+    await pool.query(
+      `UPDATE pedidos SET ingredientes = ? WHERE id_pedido = ?`,
+      [ingredientesTexto, id_pedido]
+    );
+
+    await pool.query(
+      `DELETE FROM pedidosCarrinho_ingredientes
+       WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)`,
+      [id_cliente]
+    );
+    await pool.query(
+      `DELETE FROM pedidosCarrinho WHERE id_cliente = ?`,
       [id_cliente]
     );
 
-    for (const carrinho of carrinhos) {
-      const [ingredientes] = await conn.query(
-        'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
-        [carrinho.id_pedido_carrinho]
-      );
-
-      for (const ing of ingredientes) {
-        await conn.query(
-          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
-          [novoPedidoId, ing.id_ingrediente, 1]
-        );
-      }
-    }
-
-    await conn.query(
-      'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
-      [id_cliente]
-    );
-    await conn.query('DELETE FROM pedidosCarrinho WHERE id_cliente = ?', [id_cliente]);
-
-    await conn.query(
-      'DELETE FROM pedido_ingredientes WHERE id_pedido IN (SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando" AND id_pedido <> ?)',
-      [id_cliente, novoPedidoId]
-    );
-    await conn.query(
-      'DELETE FROM pedidos WHERE id_cliente = ? AND status = "aguardando" AND id_pedido <> ?',
-      [id_cliente, novoPedidoId]
-    );
-
-    await conn.commit();
-
-    return { mensagem: 'Resumo do pedido registrado com sucesso.', id_pedido: novoPedidoId };
-  } catch (error) {
-    await conn.rollback();
-    throw error;
-  } finally {
-    conn.release();
+    res.status(200).json({ mensagem: 'Pedido registrado com sucesso!' });
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao registrar o pedido.' });
   }
 }
