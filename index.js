@@ -40,47 +40,26 @@ app.post('/fazerPedidoDireto', fazerPedidoDireto);
 app.get('/relatorio', relatorioPedidos);
 
 app.get('/resumo/:idCliente', async (req, res) => {
-  const { idCliente } = req.params;
-  if (isNaN(idCliente) || idCliente <= 0) {
-    return res.status(400).json({ erro: 'ID de cliente inválido. Deve ser um número maior que 0.' });
-  }
   try {
+    const idCliente = parseInt(req.params.idCliente);
     const resumo = await getResumoPedido(idCliente);
     res.json(resumo);
   } catch (error) {
-    res.status(500).json({ erro: 'Erro interno ao buscar resumo do pedido.' });
-  }
-});
-
-app.post('/resumo', async (req, res) => {
-  try {
-    const { id_cliente, valor_total, forma_pagamento, quantidade, taxaServico, taxaEntrega } = req.body;
-
-    if (!id_cliente || !valor_total || !forma_pagamento || !quantidade) {
-      return res.status(400).json({ erro: 'Dados do pedido incompletos.' });
-    }
-
-    const resposta = await registrarResumoPedido({ id_cliente, valor_total, forma_pagamento, quantidade, taxaServico, taxaEntrega });
-
-    res.status(201).json(resposta);
-  } catch (error) {
-    console.error('Erro ao registrar pedido:', error);
-    res.status(500).json({ erro: 'Erro interno ao registrar pedido.' });
+    res.status(500).json({ erro: error.message });
   }
 });
 
 app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
-  const { idCliente } = req.params;
-  if (isNaN(idCliente) || idCliente <= 0) {
-    return res.status(400).json({ erro: 'ID de cliente inválido. Deve ser um número maior que 0.' });
-  }
   try {
+    const idCliente = parseInt(req.params.idCliente);
     const resultado = await apagarPedidosAguardando(idCliente);
     res.json(resultado);
   } catch (error) {
-    res.status(500).json({ erro: 'Erro interno ao apagar pedidos aguardando.' });
+    res.status(500).json({ erro: error.message });
   }
 });
+
+app.post('/resumo', registrarResumoPedido);
 
 app.post('/endereco', async (req, res) => {
   try {

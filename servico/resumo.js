@@ -3,23 +3,17 @@ import pool from './conexao.js';
 export async function getResumoPedido(idCliente) {
   try {
     if (isNaN(idCliente) || idCliente <= 0) {
-      throw new Error('ID de cliente inválido. Deve ser um número maior que 0.');
-    }
-
-    const [cliente] = await pool.query('SELECT id_cliente FROM clientes WHERE id_cliente = ?', [idCliente]);
-    if (cliente.length === 0) {
-      return { erro: 'Cliente não encontrado.' };
+      throw new Error('ID de cliente inválido.');
     }
 
     const [rows] = await pool.query(`
-      SELECT
+      SELECT 
         SUM(i.valor * pi.quantidade) AS subtotal,
-        SUM(CASE WHEN i.tipo = 'tamanho' THEN pi.quantidade ELSE 0 END) AS quantidade
-      FROM pedidos p
-      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
-      JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      WHERE p.id_cliente = ? 
-        AND p.status = 'aguardando'
+        SUM(pi.quantidade) AS quantidade
+      FROM pedidosCarrinho pc
+      JOIN pedidosCarrinho_ingredientes pci ON pc.id_pedido_carrinho = pci.id_pedido_carrinho
+      JOIN ingredientes i ON pci.id_ingrediente = i.id_ingrediente
+      WHERE pc.id_cliente = ?
     `, [idCliente]);
 
     const subtotal = parseFloat(rows[0].subtotal) || 0;
@@ -47,7 +41,7 @@ export async function apagarPedidosAguardando(idCliente) {
     );
 
     if (pedidos.length === 0) {
-      return { mensagem: 'Nenhum pedido com status "aguardando" encontrado para este cliente.' };
+      return { mensagem: 'Nenhum pedido aguardando encontrado para este cliente.' };
     }
 
     const ids = pedidos.map(p => p.id_pedido);
@@ -55,7 +49,7 @@ export async function apagarPedidosAguardando(idCliente) {
     await pool.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [ids]);
     await pool.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [ids]);
 
-    return { mensagem: 'Pedidos com status "aguardando" apagados com sucesso.' };
+    return { mensagem: 'Pedidos aguardando apagados com sucesso.' };
 
   } catch (error) {
     throw error;
@@ -63,37 +57,30 @@ export async function apagarPedidosAguardando(idCliente) {
 }
 
 export async function registrarResumoPedido(req, res) {
-  const {
-    id_cliente,
-    forma_pagamento,
-    quantidade,
-    valor_total,
-    taxaServico,
-    taxaEntrega
-  } = req.body;
+  const { id_cliente, forma_pagamento, valor_total } = req.body;
 
   try {
     const [resultado] = await pool.query(
-      `INSERT INTO pedidos (id_cliente, forma_pagamento, valor_total, status)
-       VALUES (?, ?, ?, 'aguardando')`,
+      `INSERT INTO pedidos (id_cliente, forma_pagamento, valor_total)
+       VALUES (?, ?, ?)`,
       [id_cliente, forma_pagamento, valor_total]
     );
 
     const id_pedido = resultado.insertId;
 
     const [ingredientesCarrinho] = await pool.query(
-      `SELECT pci.id_ingrediente, 1 AS quantidade
+      `SELECT pci.id_ingrediente, pc.quantidade
        FROM pedidosCarrinho_ingredientes pci
        JOIN pedidosCarrinho pc ON pci.id_pedido_carrinho = pc.id_pedido_carrinho
        WHERE pc.id_cliente = ?`,
       [id_cliente]
     );
 
-    for (const ingrediente of ingredientesCarrinho) {
+    for (const item of ingredientesCarrinho) {
       await pool.query(
         `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade)
          VALUES (?, ?, ?)`,
-        [id_pedido, ingrediente.id_ingrediente, ingrediente.quantidade]
+        [id_pedido, item.id_ingrediente, item.quantidade || 1]
       );
     }
 
