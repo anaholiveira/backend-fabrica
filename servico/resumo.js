@@ -5,10 +5,23 @@ export async function getResumoPedido(idCliente) {
   try {
     conn = await pool.getConnection();
 
-    const [resumo] = await conn.query(
-      `SELECT * FROM pedidos WHERE id_cliente = ?`,
+    const [result] = await conn.query(
+      `SELECT
+         COUNT(*) AS quantidade,
+         COALESCE(SUM(valor_total), 0) AS total,
+         COALESCE(SUM(taxa_servico), 0) AS taxaServico,
+         COALESCE(SUM(taxa_entrega), 0) AS taxaEntrega
+       FROM pedidos
+       WHERE id_cliente = ? AND status = 'aguardando'`,
       [idCliente]
     );
+
+    const resumo = {
+      quantidade: result[0].quantidade || 0,
+      total: parseFloat(result[0].total || 0),
+      taxaServico: parseFloat(result[0].taxaServico || 0),
+      taxaEntrega: parseFloat(result[0].taxaEntrega || 0),
+    };
 
     return resumo;
 
