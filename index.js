@@ -40,18 +40,16 @@ app.post('/fazerPedidoDireto', fazerPedidoDireto);
 app.get('/relatorio', relatorioPedidos);
 
 app.get('/resumo/:idCliente', async (req, res) => {
-  const { idCliente } = req.params;
-
-  if (isNaN(idCliente) || idCliente <= 0) {
-    return res.status(400).json({ erro: 'ID de cliente inválido. Deve ser um número maior que 0.' });
-  }
-
   try {
+    const idCliente = parseInt(req.params.idCliente);
+    if (isNaN(idCliente) || idCliente <= 0) {
+      return res.status(400).json({ erro: 'ID de cliente inválido' });
+    }
     const resumo = await getResumoPedido(idCliente);
     res.json(resumo);
   } catch (error) {
-    console.error('Erro ao buscar resumo do pedido:', error);
-    res.status(500).json({ erro: 'Erro interno ao buscar resumo do pedido.' });
+    console.error('Erro na rota /resumo:', error);
+    res.status(500).json({ erro: 'Erro interno do servidor' });
   }
 });
 

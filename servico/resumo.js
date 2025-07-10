@@ -22,17 +22,22 @@ export async function getResumoPedido(idCliente) {
     const resumo = result[0];
 
     return {
-      quantidade: resumo.quantidade,
-      total: parseFloat(resumo.total),
-      taxaServico: parseFloat(resumo.taxaServico),
-      taxaEntrega: parseFloat(resumo.taxaEntrega),
+      quantidade: resumo.quantidade || 0,
+      total: parseFloat(resumo.total) || 0,
+      taxaServico: parseFloat(resumo.taxaServico) || 0,
+      taxaEntrega: parseFloat(resumo.taxaEntrega) || 0,
     };
-
   } catch (error) {
     console.error('Erro em getResumoPedido:', error);
     throw error;
   } finally {
-    if (conn) conn.release();
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Erro ao liberar conexão:', releaseError);
+      }
+    }
   }
 }
 
