@@ -3,34 +3,22 @@ import pool from './conexao.js';
 export async function getResumoPedido(idCliente) {
   let conn;
   try {
-    conn = await pool.getConnection();
-
     if (!idCliente || isNaN(idCliente)) {
       throw new Error('ID de cliente inválido');
     }
+    
+    conn = await pool.getConnection();
 
     const [result] = await conn.query(
-      `
-      SELECT
-        COALESCE(SUM(c.quantidade), 0) AS quantidade,
-        COALESCE(SUM(c.quantidade * cup.preco), 0) AS total,
-        COALESCE(SUM(c.quantidade * cup.preco) * 0.1, 0) AS taxaServico,
-        5.00 AS taxaEntrega
-      FROM pedidosCarrinho c
-      JOIN cupcakes cup ON cup.id_cupcake = c.id_cupcake
-      WHERE c.id_cliente = ?
-      `,
+      `SELECT
+         COALESCE(SUM(quantidade), 0) AS quantidade,
+         COALESCE(SUM(valor_total), 0) AS total,
+         COALESCE(SUM(valor_total) * 0.1, 0) AS taxaServico,
+         5.00 AS taxaEntrega
+       FROM pedidosCarrinho
+       WHERE id_cliente = ?`,
       [idCliente]
     );
-
-    if (!result || result.length === 0) {
-      return {
-        quantidade: 0,
-        total: 0,
-        taxaServico: 0,
-        taxaEntrega: 0,
-      };
-    }
 
     const resumo = result[0];
 
@@ -44,13 +32,7 @@ export async function getResumoPedido(idCliente) {
     console.error('Erro em getResumoPedido:', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        await conn.release();
-      } catch (releaseError) {
-        console.error('Erro ao liberar conexão:', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 }
 
