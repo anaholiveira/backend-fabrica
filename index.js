@@ -57,13 +57,17 @@ app.get('/resumo/:idCliente', async (req, res) => {
 
 app.post('/resumo', async (req, res) => {
   try {
-    const resumo = req.body;
+    const { id_cliente, valor_total, forma_pagamento } = req.body;
 
-    if (!resumo.id_cliente || !resumo.valor_total || !resumo.forma_pagamento || !resumo.quantidade) {
+    if (!id_cliente || !valor_total || !forma_pagamento) {
       return res.status(400).json({ erro: 'Dados do pedido incompletos.' });
     }
 
-    const resposta = await registrarResumoPedido(resumo);
+    const resposta = await registrarResumoPedido(id_cliente, valor_total, forma_pagamento);
+
+    if (resposta.status === 'erro') {
+      return res.status(500).json({ erro: resposta.erro });
+    }
 
     res.status(201).json(resposta);
   } catch (error) {
@@ -71,7 +75,6 @@ app.post('/resumo', async (req, res) => {
     res.status(500).json({ erro: 'Erro interno ao registrar pedido.' });
   }
 });
-
 
 app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
   const { idCliente } = req.params;
