@@ -14,10 +14,16 @@ export async function listarPedidosAdmin(req, res) {
         p.valor_total,
         p.forma_pagamento,
         p.status,
-        pi.id_pedido_ingrediente,
+        -- Adicionamos um ID único para o item do cupcake no pedido, se existir
+        -- Assumindo que a tabela pedidosCarrinho_ingredientes (ou similar)
+        -- tenha um id que agrupe os ingredientes de UM ÚNICO cupcake customizado.
+        -- SE VOCÊ NÃO TEM ESSE ID ÚNICO PARA CADA "ITEM_CUPCAKE", PRECISAMOS DELE.
+        -- Por ora, vamos tentar usar id_pedido_ingrediente com a quantidade
+        -- para tentar formar um agrupamento lógico.
+        pi.id_pedido_ingrediente, 
         i.tipo,
         i.nome AS nome_ingrediente,
-        pi.quantidade AS quantidade_item,
+        pi.quantidade AS quantidade_cupcake_item, -- Renomeado para clareza: quantidade de cupcakes IDÊNTICOS para este conjunto de ingredientes
         e.rua,
         e.numero,
         e.bairro,
@@ -29,7 +35,7 @@ export async function listarPedidosAdmin(req, res) {
       LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
       LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
       WHERE p.status = ?
-      ORDER BY p.id_pedido, pi.id_pedido_ingrediente
+      ORDER BY p.id_pedido, pi.id_pedido_ingrediente, i.tipo -- Ordena para agrupar ingredientes do mesmo cupcake
     `;
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
@@ -46,7 +52,7 @@ export async function listarPedidosAdmin(req, res) {
           id_cliente: row.id_cliente,
           email_cliente: row.email_cliente,
           nome_completo: row.nome_completo,
-          valor_total: parseFloat(row.valor_total || 0),
+          valor_total: parseFloat(row.valor_total || 0), 
           forma_pagamento: row.forma_pagamento,
           status: row.status,
           rua: row.rua,
@@ -54,36 +60,40 @@ export async function listarPedidosAdmin(req, res) {
           bairro: row.bairro,
           cep: row.cep,
           complemento: row.complemento,
-          cupcakes: []
+          cupcakes: [] 
         });
       }
 
       const pedido = pedidosAgrupados.get(pedidoId);
 
       if (row.tipo && row.nome_ingrediente) {
-          let foundCupcake = null;
-          for (let i = 0; i < pedido.cupcakes.length; i++) {
-              const c = pedido.cupcakes[i];
-              if (c.quantidade === row.quantidade_item && !c[row.tipo]) {
-                  foundCupcake = c;
-                  break;
-              }
-          }
-          
-          if (!foundCupcake) {
-              foundCupcake = {
-                  tamanho: null,
-                  recheio: null,
-                  cobertura: null,
-                  cor_cobertura: null,
-                  quantidade: row.quantidade_item,
-              };
-              pedido.cupcakes.push(foundCupcake);
-          }
+        
+        let foundCupcake = null;
 
-          if (row.tipo && row.nome_ingrediente) {
-              foundCupcake[row.tipo] = row.nome_ingrediente;
-          }
+        let cupcakeAtual = null;
+
+        for (let i = pedido.cupcakes.length - 1; i >= 0; i--) {
+            const c = pedido.cupcakes[i];
+
+            if (c.quantidade === row.quantidade_cupcake_item && !c[row.tipo]) {
+                cupcakeAtual = c;
+                break;
+            }
+        }
+        
+
+        if (!cupcakeAtual) {
+            cupcakeAtual = {
+                tamanho: null,
+                recheio: null,
+                cobertura: null,
+                cor_cobertura: null,
+                quantidade: row.quantidade_cupcake_item || 1 
+            };
+            pedido.cupcakes.push(cupcakeAtual);
+        }
+
+        cupcakeAtual[row.tipo] = row.nome_ingrediente;
       }
     }
 
@@ -91,14 +101,8 @@ export async function listarPedidosAdmin(req, res) {
       const data = new Date(pedido.data_criacao);
 
       const cupcakesValidos = pedido.cupcakes.filter(cp =>
-        cp.tamanho || cp.recheio || cp.cobertura || cp.cor_cobertura || cp.quantidade > 0
+        cp.tamanho || cp.recheio || cp.cobertura || cp.cor_cobertura
       );
-
-      cupcakesValidos.forEach(cp => {
-          if (!cp.quantidade || cp.quantidade === 0) {
-              cp.quantidade = 1;
-          }
-      });
 
       return {
         ...pedido,
