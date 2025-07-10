@@ -49,15 +49,7 @@ app.get('/resumo/:idCliente', async (req, res) => {
   }
 });
 
-app.delete('/pedidos/aguardando/:idCliente', async (req, res) => {
-  try {
-    const idCliente = parseInt(req.params.idCliente);
-    const resultado = await apagarPedidosAguardando(idCliente);
-    res.json(resultado);
-  } catch (error) {
-    res.status(500).json({ erro: error.message });
-  }
-});
+app.get('/resumo/:idCliente', getResumoPedido);
 
 app.post('/resumo', registrarResumoPedido);
 

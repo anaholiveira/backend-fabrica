@@ -1,31 +1,32 @@
 import pool from './conexao.js';
 
-export async function getResumoPedido(idCliente) {
-  try {
-    if (isNaN(idCliente) || idCliente <= 0) {
-      throw new Error('ID de cliente inválido.');
-    }
+export async function getResumoPedido(req, res) {
+  const idCliente = parseInt(req.params.idCliente);
+  if (isNaN(idCliente) || idCliente <= 0) {
+    return res.status(400).json({ erro: 'ID de cliente inválido.' });
+  }
 
+  try {
     const [rows] = await pool.query(`
-      SELECT 
+      SELECT
         SUM(i.valor * pi.quantidade) AS subtotal,
         SUM(pi.quantidade) AS quantidade
-      FROM pedidosCarrinho pc
-      JOIN pedidosCarrinho_ingredientes pci ON pc.id_pedido_carrinho = pci.id_pedido_carrinho
-      JOIN ingredientes i ON pci.id_ingrediente = i.id_ingrediente
-      WHERE pc.id_cliente = ?
+      FROM pedidos p
+      JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
+      JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
+      WHERE p.id_cliente = ? AND p.status = 'aguardando'
     `, [idCliente]);
 
     const subtotal = parseFloat(rows[0].subtotal) || 0;
     const quantidade = parseInt(rows[0].quantidade) || 0;
-    const taxaServico = 2.50;
-    const taxaEntrega = 5.00;
+    const taxaServico = 2.5;
+    const taxaEntrega = 5.0;
     const total = parseFloat((subtotal + taxaServico + taxaEntrega).toFixed(2));
 
-    return { quantidade, subtotal, taxaServico, taxaEntrega, total };
-
-  } catch (error) {
-    throw error;
+    res.json({ quantidade, subtotal, taxaServico, taxaEntrega, total });
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao buscar resumo do pedido.' });
   }
 }
 
