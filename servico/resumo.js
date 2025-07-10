@@ -110,18 +110,11 @@ export async function apagarPedidosAguardando(idCliente) {
       [idCliente, 'aguardando']
     );
 
-    return { status: 'ok', afetados: resultado.affectedRows };
-
+    return { status: 'ok', deletados: resultado.affectedRows };
   } catch (error) {
     console.error('Erro em apagarPedidosAguardando:', error);
     return { status: 'erro', erro: error.message };
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.error('Erro ao liberar conexão:', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 }
