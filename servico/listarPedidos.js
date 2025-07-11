@@ -61,29 +61,28 @@ export async function listarPedidosAdmin(req, res) {
       const pedido = pedidosAgrupados.get(pedidoId);
 
       if (row.tipo && row.nome_ingrediente) {
-          let foundCupcake = null;
-          for (let i = 0; i < pedido.cupcakes.length; i++) {
-              const c = pedido.cupcakes[i];
-              if (c.quantidade === row.quantidade_item && !c[row.tipo]) {
-                  foundCupcake = c;
-                  break;
-              }
-          }
-          
-          if (!foundCupcake) {
-              foundCupcake = {
-                  tamanho: null,
-                  recheio: null,
-                  cobertura: null,
-                  cor_cobertura: null,
-                  quantidade: row.quantidade_item,
-              };
-              pedido.cupcakes.push(foundCupcake);
-          }
+        let foundCupcake = pedido.cupcakes.find(c =>
+          c.quantidade === row.quantidade_item &&
+          (
+            (row.tipo === 'tamanho' && c.tamanho === null) ||
+            (row.tipo === 'recheio' && c.recheio === null) ||
+            (row.tipo === 'cobertura' && c.cobertura === null) ||
+            (row.tipo === 'cor_cobertura' && c.cor_cobertura === null)
+          )
+        );
 
-          if (row.tipo && row.nome_ingrediente) {
-              foundCupcake[row.tipo] = row.nome_ingrediente;
-          }
+        if (!foundCupcake) {
+          foundCupcake = {
+            tamanho: null,
+            recheio: null,
+            cobertura: null,
+            cor_cobertura: null,
+            quantidade: row.quantidade_item
+          };
+          pedido.cupcakes.push(foundCupcake);
+        }
+
+        foundCupcake[row.tipo] = row.nome_ingrediente;
       }
     }
 
