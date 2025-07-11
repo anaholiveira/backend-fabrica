@@ -86,25 +86,6 @@ export async function registrarResumoPedido(req, res) {
 
     const novoPedidoId = pedidoResult.insertId;
 
-    const [carrinhos] = await conn.query(
-      'SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?',
-      [id_cliente]
-    );
-
-    for (const carrinho of carrinhos) {
-      const [ingredientes] = await conn.query(
-        'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
-        [carrinho.id_pedido_carrinho]
-      );
-
-      for (const ing of ingredientes) {
-        await conn.query(
-          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
-          [novoPedidoId, ing.id_ingrediente, 1]
-        );
-      }
-    }
-
     const [pedidosAntigos] = await conn.query(
       'SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando" AND id_pedido <> ?',
       [id_cliente, novoPedidoId]
@@ -120,6 +101,25 @@ export async function registrarResumoPedido(req, res) {
         await conn.query(
           'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
           [novoPedidoId, ing.id_ingrediente, ing.quantidade]
+        );
+      }
+    }
+
+    const [carrinhos] = await conn.query(
+      'SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?',
+      [id_cliente]
+    );
+
+    for (const carrinho of carrinhos) {
+      const [ingredientes] = await conn.query(
+        'SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?',
+        [carrinho.id_pedido_carrinho]
+      );
+
+      for (const ing of ingredientes) {
+        await conn.query(
+          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
+          [novoPedidoId, ing.id_ingrediente, 1]
         );
       }
     }
