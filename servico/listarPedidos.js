@@ -1,4 +1,5 @@
 import pool from './conexao.js';
+
 export async function listarPedidosAdmin(req, res) {
   try {
     const { filtro } = req.query;
@@ -72,11 +73,15 @@ export async function listarPedidosAdmin(req, res) {
         });
       }
     }
+
     const pedidosFinal = [];
+
     for (const pedido of pedidosMap.values()) {
       const gruposCupcakes = {};
+
       for (let i = 0; i < pedido.ingredientes.length; i += 4) {
         const grupo = pedido.ingredientes.slice(i, i + 4);
+
         const cupcake = {
           tamanho: null,
           recheio: null,
@@ -84,23 +89,28 @@ export async function listarPedidosAdmin(req, res) {
           cor_cobertura: null,
           quantidade: 1
         };
+
         for (const ingrediente of grupo) {
           if (ingrediente.tipo && ingrediente.nome) {
             cupcake[ingrediente.tipo] = ingrediente.nome;
             cupcake.quantidade = ingrediente.quantidade;
           }
         }
+
         const chave = `${cupcake.tamanho}-${cupcake.recheio}-${cupcake.cobertura}-${cupcake.cor_cobertura}`;
+
         if (!gruposCupcakes[chave]) {
           gruposCupcakes[chave] = { ...cupcake };
         } else {
           gruposCupcakes[chave].quantidade += cupcake.quantidade;
         }
       }
+
       pedido.cupcakes = Object.values(gruposCupcakes);
       delete pedido.ingredientes;
       pedidosFinal.push(pedido);
     }
+
     res.json(pedidosFinal);
   } catch (error) {
     console.error('Erro ao buscar pedidos:', error);
