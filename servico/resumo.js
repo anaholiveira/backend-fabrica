@@ -99,20 +99,36 @@ export async function registrarResumoPedido(req, res) {
       }
     }
 
+    const [pedidosAntigos] = await conn.query(
+      'SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando" AND id_pedido <> ?',
+      [id_cliente, novoPedidoId]
+    );
+
+    for (const pedido of pedidosAntigos) {
+      const [ingredientesAntigos] = await conn.query(
+        'SELECT id_ingrediente, quantidade FROM pedido_ingredientes WHERE id_pedido = ?',
+        [pedido.id_pedido]
+      );
+
+      for (const ing of ingredientesAntigos) {
+        await conn.query(
+          'INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)',
+          [novoPedidoId, ing.id_ingrediente, ing.quantidade]
+        );
+      }
+    }
+
     await conn.query(
       'DELETE FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)',
       [id_cliente]
     );
     await conn.query('DELETE FROM pedidosCarrinho WHERE id_cliente = ?', [id_cliente]);
 
-    await conn.query(
-      'DELETE FROM pedido_ingredientes WHERE id_pedido IN (SELECT id_pedido FROM pedidos WHERE id_cliente = ? AND status = "aguardando" AND id_pedido <> ?)',
-      [id_cliente, novoPedidoId]
-    );
-    await conn.query(
-      'DELETE FROM pedidos WHERE id_cliente = ? AND status = "aguardando" AND id_pedido <> ?',
-      [id_cliente, novoPedidoId]
-    );
+    if (pedidosAntigos.length > 0) {
+      const idsAntigos = pedidosAntigos.map(p => p.id_pedido);
+      await conn.query('DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)', [idsAntigos]);
+      await conn.query('DELETE FROM pedidos WHERE id_pedido IN (?)', [idsAntigos]);
+    }
 
     await conn.commit();
 
