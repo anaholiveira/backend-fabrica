@@ -24,7 +24,7 @@ export async function getResumoPedido(req, res) {
        FROM pedidos p
        JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
        JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-       WHERE p.id_cliente = ? AND p.status = 'aguardando'`,
+       WHERE p.id_cliente = ? AND p.status = 'aguardando' AND p.forma_pagamento IS NULL`,
       [idCliente]
     );
 
