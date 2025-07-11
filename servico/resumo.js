@@ -68,9 +68,17 @@ export async function apagarPedidosAguardando(req, res) {
 }
 
 export async function registrarResumoPedido(req, res) {
-  const { id_cliente, forma_pagamento, valor_total, quantidade, taxaServico, taxaEntrega } = req.body;
+  const {
+    id_cliente,
+    forma_pagamento,
+    valor_total,
+    quantidade,
+    taxaServico,
+    taxaEntrega,
+    id_endereco
+  } = req.body;
 
-  if (!id_cliente || !forma_pagamento || !valor_total || !quantidade) {
+  if (!id_cliente || !forma_pagamento || !valor_total || !quantidade || !id_endereco) {
     return res.status(400).json({ erro: 'Dados do pedido incompletos.' });
   }
 
@@ -95,9 +103,9 @@ export async function registrarResumoPedido(req, res) {
 
     await conn.query(
       `UPDATE pedidos
-       SET forma_pagamento = ?, valor_total = ?
+       SET forma_pagamento = ?, valor_total = ?, id_endereco = ?
        WHERE id_pedido = ?`,
-      [forma_pagamento, valor_total, novoPedidoId]
+      [forma_pagamento, valor_total, id_endereco, novoPedidoId]
     );
 
     const [carrinhos] = await conn.query(
@@ -142,6 +150,7 @@ export async function registrarResumoPedido(req, res) {
     await conn.query(
       `DELETE FROM pedidosCarrinho_ingredientes
        WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)`,
+
       [id_cliente]
     );
 
