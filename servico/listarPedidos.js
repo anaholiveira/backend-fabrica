@@ -26,7 +26,7 @@ export async function listarPedidosAdmin(req, res) {
       JOIN clientes c ON p.id_cliente = c.id_cliente
       LEFT JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
+      LEFT JOIN enderecos e ON p.id_endereco = e.id_endereco
       WHERE p.status = ?
       ORDER BY p.id_pedido, p.data_criacao
     `;
@@ -107,7 +107,7 @@ export async function listarPedidosAdmin(req, res) {
       }
 
       pedido.cupcakes = Object.values(gruposCupcakes);
-      delete pedido.ingredientes;
+      delete pedido.ingredientes; // remover os ingredientes brutos
       pedidosFinal.push(pedido);
     }
 
