@@ -33,6 +33,8 @@ export async function listarPedidosAdmin(req, res) {
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
 
+    console.log('Dados brutos da query:', rows);
+
     const pedidosAgrupados = new Map();
 
     for (const row of rows) {
@@ -45,7 +47,7 @@ export async function listarPedidosAdmin(req, res) {
           id_cliente: row.id_cliente,
           email_cliente: row.email_cliente,
           nome_completo: row.nome_completo,
-          valor_total: parseFloat(row.valor_total || 0), 
+          valor_total: parseFloat(row.valor_total || 0),
           forma_pagamento: row.forma_pagamento,
           status: row.status,
           rua: row.rua,
@@ -59,16 +61,13 @@ export async function listarPedidosAdmin(req, res) {
 
       const pedido = pedidosAgrupados.get(pedidoId);
 
-      const tipoIngrediente = row.tipo;
-      const nomeIngrediente = row.nome_ingrediente;
-      const quantidadeDesejada = row.quantidade_cupcake_desejada;
-
-      if (tipoIngrediente && nomeIngrediente && quantidadeDesejada !== null && quantidadeDesejada > 0) {
+      if (row.tipo && row.nome_ingrediente && row.quantidade_cupcake_desejada !== null && row.quantidade_cupcake_desejada > 0) {
+          
           let cupcakeEncontrado = null;
           
           for (let i = 0; i < pedido.cupcakes.length; i++) {
               const currentCupcake = pedido.cupcakes[i];
-              if (currentCupcake.quantidade === quantidadeDesejada && !currentCupcake[tipoIngrediente]) {
+              if (currentCupcake.quantidade === row.quantidade_cupcake_desejada && !currentCupcake[row.tipo]) {
                   cupcakeEncontrado = currentCupcake;
                   break;
               }
@@ -80,29 +79,21 @@ export async function listarPedidosAdmin(req, res) {
                   recheio: null,
                   cobertura: null,
                   cor_cobertura: null,
-                  quantidade: quantidadeDesejada, 
+                  quantidade: row.quantidade_cupcake_desejada, 
               };
               pedido.cupcakes.push(cupcakeEncontrado);
           }
 
-          if (['tamanho', 'recheio', 'cobertura', 'cor_cobertura'].includes(tipoIngrediente)) {
-              cupcakeEncontrado[tipoIngrediente] = nomeIngrediente;
+          if (['tamanho', 'recheio', 'cobertura', 'cor_cobertura'].includes(row.tipo)) {
+              cupcakeEncontrado[row.tipo] = row.nome_ingrediente;
           }
+      } else {
+        console.warn(`Ingrediente ignorado por ser inválido para o Pedido ${pedidoId}:`, row);
       }
     }
 
     const pedidosFormatados = Array.from(pedidosAgrupados.values()).map(pedido => {
-      const rawDate = row.data_criacao;
-      const data = new Date(rawDate);
-      const isDateValid = !isNaN(data.getTime());
-
-      const formattedDate = isDateValid ? data.toLocaleString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-      }) : 'Data inválida';
+      const data = new Date(pedido.data_criacao);
 
       const cupcakesValidos = pedido.cupcakes.filter(cp =>
         (cp.tamanho || cp.recheio || cp.cobertura || cp.cor_cobertura) && cp.quantidade > 0
@@ -110,14 +101,22 @@ export async function listarPedidosAdmin(req, res) {
 
       return {
         ...pedido,
-        data_criacao: formattedDate,
+        data_criacao: data.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
         cupcakes: cupcakesValidos.length > 0 ? cupcakesValidos : [] 
       };
     });
 
+    console.log('Pedidos formatados para resposta:', pedidosFormatados);
+
     res.json(pedidosFormatados);
   } catch (error) {
-    console.error('Erro ao buscar pedidos:', error); 
+    console.error('Erro ao buscar pedidos:', error);
     res.status(500).json({ mensagem: 'Erro interno no servidor ao buscar pedidos.' });
   }
 }
