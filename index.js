@@ -39,19 +39,9 @@ app.post('/fazerPedidoDireto', fazerPedidoDireto);
 
 app.get('/relatorio', relatorioPedidos);
 
-app.get('/resumo/:idCliente', async (req, res) => {
-  try {
-    const idCliente = parseInt(req.params.idCliente);
-    const resumo = await getResumoPedido(idCliente);
-    res.json(resumo);
-  } catch (error) {
-    res.status(500).json({ erro: error.message });
-  }
-});
-
 app.get('/resumo/:idCliente', getResumoPedido);
-app.delete('/pedidos/aguardando/:idCliente', apagarPedidosAguardando);
 app.post('/resumo', registrarResumoPedido);
+app.delete('/pedidos/aguardando/:idCliente', apagarPedidosAguardando);
 
 app.post('/endereco', async (req, res) => {
   try {
