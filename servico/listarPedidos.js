@@ -3,6 +3,7 @@ import pool from './conexao.js';
 export async function listarPedidosAdmin(req, res) {
   try {
     const { filtro } = req.query;
+
     const query = `
       SELECT
         p.id_pedido,
@@ -13,26 +14,20 @@ export async function listarPedidosAdmin(req, res) {
         p.valor_total,
         p.forma_pagamento,
         p.status,
-        pi.id_pedido_ingrediente,
         i.tipo,
         i.nome AS nome_ingrediente,
-        pi.quantidade AS quantidade_item,
-        e.rua,
-        e.numero,
-        e.bairro,
-        e.cep,
-        e.complemento
+        pi.quantidade AS quantidade_cupcake_desejada, 
+        p.rua,     
+        p.numero,  
+        p.bairro,  
+        p.cep,     
+        p.complemento
       FROM pedidos p
       JOIN clientes c ON p.id_cliente = c.id_cliente
       LEFT JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      -- ATENÇÃO: A junção de endereço é feita pelo id_cliente.
-      -- Isso significa que ele sempre pegará o endereço ATUAL do cliente,
-      -- não necessariamente o endereço usado na hora do pedido.
-      -- Para uma solução definitiva, a tabela 'pedidos' deveria ter um 'id_endereco'.
-      LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
       WHERE p.status = ?
-      ORDER BY p.id_pedido, pi.id_pedido_ingrediente
+      ORDER BY p.id_pedido, pi.id_pedido_ingrediente, i.tipo
     `;
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
@@ -41,6 +36,7 @@ export async function listarPedidosAdmin(req, res) {
 
     for (const row of rows) {
       const pedidoId = row.id_pedido;
+
       if (!pedidosAgrupados.has(pedidoId)) {
         pedidosAgrupados.set(pedidoId, {
           id_pedido: pedidoId,
@@ -61,27 +57,40 @@ export async function listarPedidosAdmin(req, res) {
       }
 
       const pedido = pedidosAgrupados.get(pedidoId);
-      if (row.id_pedido_ingrediente) {
-        let cupcakeAtual = pedido.cupcakes.length > 0 ? pedido.cupcakes[pedido.cupcakes.length - 1] : null;
-        if (row.tipo === 'tamanho' || !cupcakeAtual) {
-          cupcakeAtual = {
-            tamanho: null,
-            recheio: null,
-            cobertura: null,
-            cor_cobertura: null,
-            quantidade: row.quantidade_item || 1,
-          };
-          pedido.cupcakes.push(cupcakeAtual);
-        }
 
-        if (row.tipo && typeof cupcakeAtual[row.tipo] !== 'undefined') {
-          cupcakeAtual[row.tipo] = row.nome_ingrediente;
-        }
+      if (row.tipo && row.nome_ingrediente) {
+          let cupcakeEncontrado = null;
+          
+          for (let i = 0; i < pedido.cupcakes.length; i++) {
+              const currentCupcake = pedido.cupcakes[i];
+              if (currentCupcake.quantidade === row.quantidade_cupcake_desejada && !currentCupcake[row.tipo]) {
+                  cupcakeEncontrado = currentCupcake;
+                  break;
+              }
+          }
+
+          if (!cupcakeEncontrado) {
+              cupcakeEncontrado = {
+                  tamanho: null,
+                  recheio: null,
+                  cobertura: null,
+                  cor_cobertura: null,
+                  quantidade: row.quantidade_cupcake_desejada || 1,
+              };
+              pedido.cupcakes.push(cupcakeEncontrado);
+          }
+
+          cupcakeEncontrado[row.tipo] = row.nome_ingrediente;
       }
     }
 
     const pedidosFormatados = Array.from(pedidosAgrupados.values()).map(pedido => {
       const data = new Date(pedido.data_criacao);
+
+      const cupcakesValidos = pedido.cupcakes.filter(cp =>
+        cp.tamanho || cp.recheio || cp.cobertura || cp.cor_cobertura
+      );
+
       return {
         ...pedido,
         data_criacao: data.toLocaleString('pt-BR', {
@@ -91,7 +100,7 @@ export async function listarPedidosAdmin(req, res) {
           hour: '2-digit',
           minute: '2-digit'
         }),
-        cupcakes: pedido.cupcakes.filter(cp => cp.tamanho || cp.recheio || cp.cobertura)
+        cupcakes: cupcakesValidos
       };
     });
 
