@@ -78,9 +78,15 @@ export async function registrarResumoPedido(req, res) {
     id_endereco
   } = req.body;
 
-  if (!id_cliente || !forma_pagamento || !valor_total || !quantidade || !id_endereco) {
+  if (
+    id_cliente === undefined ||
+    forma_pagamento === undefined ||
+    valor_total === undefined ||
+    quantidade === undefined ||
+    id_endereco === undefined
+    ) {
     return res.status(400).json({ erro: 'Dados do pedido incompletos.' });
-  }
+    }
 
   const conn = await pool.getConnection();
 
