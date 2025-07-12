@@ -62,25 +62,6 @@ app.get('/enderecos', async (req, res) => {
   }
 });
 
-function formatarDataHora(data) {
-  try {
-    const dataOriginal = new Date(data);
-    return new Intl.DateTimeFormat('pt-BR', {
-      timeZone: 'America/Porto_Velho',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    }).format(dataOriginal);
-  } catch (err) {
-    console.error("Erro ao formatar data no backend:", err);
-    return data;
-  }
-}
-
 app.get('/ingredientes/:tipo', async (req, res) => {
   const { tipo } = req.params;
   try {
@@ -118,14 +99,7 @@ app.delete('/ingredientes/:id', async (req, res) => {
 app.get('/feedbacks', async (req, res) => {
   try {
     const feedbacks = await listarFeedbacks();
-    const feedbacksFormatados = feedbacks.map(feedback => {
-      const dataFormatada = formatarDataHora(feedback.data_criacao);
-      return {
-        ...feedback,
-        data_criacao: dataFormatada
-      };
-    });
-    res.json(feedbacksFormatados);
+    res.json(feedbacks);
   } catch (error) {
     res.status(400).json({ erro: error.message });
   }
