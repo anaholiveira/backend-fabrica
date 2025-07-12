@@ -114,10 +114,10 @@ app.get('/feedbacks', async (req, res) => {
   try {
     const feedbacks = await listarFeedbacks();
     const feedbacksFormatados = feedbacks.map(feedback => {
-      const dataFormatada = formatarDataHora(feedback.data_criacao); 
+      const dataFormatada = formatarDataHora(feedback.data_criacao);
       return {
         ...feedback,
-        data_criacao: dataFormatada 
+        data_criacao: dataFormatada
       };
     });
     res.json(feedbacksFormatados);
@@ -129,8 +129,16 @@ app.get('/feedbacks', async (req, res) => {
 app.post('/feedbacks', async (req, res) => {
   const { id_cliente, estrelas, comentario, foto } = req.body;
   try {
-    const novoFeedback = await adicionarFeedback({ id_cliente, estrelas, comentario, foto });
-    res.status(201).json({ id: novoFeedback.id || novoFeedback, mensagem: 'Feedback adicionado com sucesso' });
+    const novoFeedback = await adicionarFeedback({
+      id_cliente,
+      estrelas,
+      comentario,
+      foto
+    });
+    res.status(201).json({
+      id: novoFeedback.id || novoFeedback,
+      mensagem: 'Feedback adicionado com sucesso'
+    });
   } catch (error) {
     res.status(400).json({ erro: 'Não foi possível cadastrar o feedback' });
   }
