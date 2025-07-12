@@ -65,7 +65,7 @@ export async function listarPedidosAdmin(req, res) {
 
       const pedido = pedidosMap.get(id);
 
-      if (row.tipo && row.nome_ingrediente) {
+      if (row.tipo && row.nome_ingrediente && row.quantidade_ingrediente) {
         for (let i = 0; i < row.quantidade_ingrediente; i++) {
           pedido.ingredientes.push({
             tipo: row.tipo,
@@ -81,13 +81,21 @@ export async function listarPedidosAdmin(req, res) {
       const ingredientes = pedido.ingredientes;
       const cupcakes = [];
 
+      const padrao = {
+        tamanho: 'Pequeno',
+        recheio: 'Brigadeiro',
+        cobertura: 'Chantilly',
+        cor_cobertura: 'Branco'
+      };
+
       for (let i = 0; i < ingredientes.length; i += 4) {
         const grupo = ingredientes.slice(i, i + 4);
-        const cupcake = {
-          tamanho: null,
-          recheio: null,
-          cobertura: null,
-          cor_cobertura: null,
+
+        let cupcake = {
+          tamanho: padrao.tamanho,
+          recheio: padrao.recheio,
+          cobertura: padrao.cobertura,
+          cor_cobertura: padrao.cor_cobertura,
           quantidade: 1
         };
 
