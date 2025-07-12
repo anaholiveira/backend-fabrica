@@ -78,38 +78,37 @@ export async function listarPedidosAdmin(req, res) {
 
     for (const pedido of pedidosMap.values()) {
       const cupcakes = [];
-      let grupoAtual = [];
+
+      const porTipo = {
+        tamanho: [],
+        recheio: [],
+        cobertura: [],
+        cor_cobertura: []
+      };
 
       for (const ingrediente of pedido.ingredientes) {
-        grupoAtual.push(ingrediente);
-
-        if (grupoAtual.length === 4) {
-          const cupcake = {
-            tamanho: null,
-            recheio: null,
-            cobertura: null,
-            cor_cobertura: null,
-            quantidade: grupoAtual[0]?.quantidade || 1
-          };
-
-          for (const item of grupoAtual) {
-            if (item.tipo === 'tamanho') cupcake.tamanho = item.nome;
-            else if (item.tipo === 'recheio') cupcake.recheio = item.nome;
-            else if (item.tipo === 'cobertura') cupcake.cobertura = item.nome;
-            else if (item.tipo === 'cor_cobertura') cupcake.cor_cobertura = item.nome;
-          }
-
-          if (
-            cupcake.tamanho &&
-            cupcake.recheio &&
-            cupcake.cobertura &&
-            cupcake.cor_cobertura
-          ) {
-            cupcakes.push(cupcake);
-          }
-
-          grupoAtual = [];
+        if (porTipo[ingrediente.tipo]) {
+          porTipo[ingrediente.tipo].push(ingrediente);
         }
+      }
+
+      const totalCupcakes = Math.min(
+        porTipo.tamanho.length,
+        porTipo.recheio.length,
+        porTipo.cobertura.length,
+        porTipo.cor_cobertura.length
+      );
+
+      for (let i = 0; i < totalCupcakes; i++) {
+        const cupcake = {
+          tamanho: porTipo.tamanho[i]?.nome || 'Não especificado',
+          recheio: porTipo.recheio[i]?.nome || 'Não especificado',
+          cobertura: porTipo.cobertura[i]?.nome || 'Não especificado',
+          cor_cobertura: porTipo.cor_cobertura[i]?.nome || 'Não especificado',
+          quantidade: porTipo.tamanho[i]?.quantidade || 1
+        };
+
+        cupcakes.push(cupcake);
       }
 
       pedido.cupcakes = cupcakes;
