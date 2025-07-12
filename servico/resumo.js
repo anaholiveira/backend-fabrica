@@ -113,22 +113,24 @@ export async function registrarResumoPedido(req, res) {
 
       for (const ing of ingredientes) {
         await conn.query(
-          `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)`,
-          [novoPedidoId, ing.id_ingrediente, 1]
+          `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade, id_cupcake)
+           VALUES (?, ?, ?, ?)`,
+          [novoPedidoId, ing.id_ingrediente, 1, carrinho.id_pedido_carrinho]
         );
       }
     }
 
     for (const pedido of pedidosAntigos) {
       const [ingredientesAntigos] = await conn.query(
-        `SELECT id_ingrediente, quantidade FROM pedido_ingredientes WHERE id_pedido = ?`,
+        `SELECT id_ingrediente, quantidade, id_cupcake FROM pedido_ingredientes WHERE id_pedido = ?`,
         [pedido.id_pedido]
       );
 
       for (const ing of ingredientesAntigos) {
         await conn.query(
-          `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)`,
-          [novoPedidoId, ing.id_ingrediente, ing.quantidade]
+          `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade, id_cupcake)
+           VALUES (?, ?, ?, ?)`,
+          [novoPedidoId, ing.id_ingrediente, ing.quantidade, ing.id_cupcake || null]
         );
       }
     }

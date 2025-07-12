@@ -17,6 +17,7 @@ export async function listarPedidosAdmin(req, res) {
         i.nome AS nome_ingrediente,
         i.tipo,
         pi.quantidade AS quantidade_ingrediente,
+        pi.id_cupcake,
         e.rua,
         e.numero,
         e.bairro,
@@ -28,7 +29,7 @@ export async function listarPedidosAdmin(req, res) {
       LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
       LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
       WHERE p.status = ?
-      ORDER BY p.id_pedido, p.data_criacao
+      ORDER BY p.id_pedido, pi.id_cupcake, i.tipo
     `;
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
@@ -59,51 +60,35 @@ export async function listarPedidosAdmin(req, res) {
           bairro: row.bairro,
           cep: row.cep,
           complemento: row.complemento,
-          ingredientes: []
+          cupcakes: new Map()
         });
       }
 
       const pedido = pedidosMap.get(id);
 
-      if (row.tipo && row.nome_ingrediente) {
-        for (let i = 0; i < row.quantidade_ingrediente; i++) {
-          pedido.ingredientes.push({
-            tipo: row.tipo,
-            nome: row.nome_ingrediente
-          });
-        }
-      }
-    }
-
-    const pedidosFinal = [];
-
-    for (const pedido of pedidosMap.values()) {
-      const ingredientes = pedido.ingredientes;
-      const cupcakes = [];
-
-      for (let i = 0; i < ingredientes.length; i += 4) {
-        const grupo = ingredientes.slice(i, i + 4);
-
-        const cupcake = {
+      const idCupcake = row.id_cupcake;
+      if (!pedido.cupcakes.has(idCupcake)) {
+        pedido.cupcakes.set(idCupcake, {
           tamanho: 'Não especificado',
           recheio: 'Não especificado',
           cobertura: 'Não especificado',
           cor_cobertura: 'Não especificado',
           quantidade: 1
-        };
-
-        for (const ing of grupo) {
-          if (ing.tipo === 'tamanho') cupcake.tamanho = ing.nome;
-          else if (ing.tipo === 'recheio') cupcake.recheio = ing.nome;
-          else if (ing.tipo === 'cobertura') cupcake.cobertura = ing.nome;
-          else if (ing.tipo === 'cor_cobertura') cupcake.cor_cobertura = ing.nome;
-        }
-
-        cupcakes.push(cupcake);
+        });
       }
 
-      pedido.cupcakes = cupcakes;
-      delete pedido.ingredientes;
+      const cupcake = pedido.cupcakes.get(idCupcake);
+
+      if (row.tipo === 'tamanho') cupcake.tamanho = row.nome_ingrediente;
+      else if (row.tipo === 'recheio') cupcake.recheio = row.nome_ingrediente;
+      else if (row.tipo === 'cobertura') cupcake.cobertura = row.nome_ingrediente;
+      else if (row.tipo === 'cor_cobertura') cupcake.cor_cobertura = row.nome_ingrediente;
+    }
+
+    const pedidosFinal = [];
+
+    for (const pedido of pedidosMap.values()) {
+      pedido.cupcakes = Array.from(pedido.cupcakes.values());
       pedidosFinal.push(pedido);
     }
 
