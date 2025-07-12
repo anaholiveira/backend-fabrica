@@ -14,9 +14,10 @@ export async function listarPedidosAdmin(req, res) {
         p.valor_total,
         p.forma_pagamento,
         p.status,
+        pi.id_cupcake,
+        pi.quantidade AS quantidade_cupcake,
         i.nome AS nome_ingrediente,
         i.tipo,
-        pi.quantidade AS quantidade_ingrediente,
         e.rua,
         e.numero,
         e.bairro,
@@ -26,9 +27,9 @@ export async function listarPedidosAdmin(req, res) {
       JOIN clientes c ON p.id_cliente = c.id_cliente
       LEFT JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
+      LEFT JOIN enderecos e ON p.id_endereco = e.id_endereco
       WHERE p.status = ?
-      ORDER BY p.id_pedido, p.data_criacao
+      ORDER BY p.id_pedido, pi.id_cupcake, i.tipo
     `;
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
@@ -36,11 +37,11 @@ export async function listarPedidosAdmin(req, res) {
     const pedidosMap = new Map();
 
     for (const row of rows) {
-      const id = row.id_pedido;
+      const idPedido = row.id_pedido;
 
-      if (!pedidosMap.has(id)) {
-        pedidosMap.set(id, {
-          id_pedido: id,
+      if (!pedidosMap.has(idPedido)) {
+        pedidosMap.set(idPedido, {
+          id_pedido: idPedido,
           data_criacao: new Date(row.data_criacao).toLocaleString('pt-BR', {
             day: '2-digit',
             month: '2-digit',
@@ -59,55 +60,38 @@ export async function listarPedidosAdmin(req, res) {
           bairro: row.bairro,
           cep: row.cep,
           complemento: row.complemento,
-          ingredientes: []
+          cupcakesMap: new Map()
         });
       }
 
-      const pedido = pedidosMap.get(id);
+      const pedido = pedidosMap.get(idPedido);
+      const idCupcake = row.id_cupcake;
 
-      if (row.tipo && row.nome_ingrediente) {
-        pedido.ingredientes.push({
-          tipo: row.tipo,
-          nome: row.nome_ingrediente,
-          quantidade: row.quantidade_ingrediente
+      if (!idCupcake) continue;
+
+      if (!pedido.cupcakesMap.has(idCupcake)) {
+        pedido.cupcakesMap.set(idCupcake, {
+          tamanho: 'Não especificado',
+          recheio: 'Não especificado',
+          cobertura: 'Não especificado',
+          cor_cobertura: 'Não especificado',
+          quantidade: row.quantidade_cupcake || 1
         });
       }
+
+      const cupcake = pedido.cupcakesMap.get(idCupcake);
+
+      if (row.tipo === 'tamanho') cupcake.tamanho = row.nome_ingrediente;
+      else if (row.tipo === 'recheio') cupcake.recheio = row.nome_ingrediente;
+      else if (row.tipo === 'cobertura') cupcake.cobertura = row.nome_ingrediente;
+      else if (row.tipo === 'cor_cobertura') cupcake.cor_cobertura = row.nome_ingrediente;
     }
 
     const pedidosFinal = [];
 
     for (const pedido of pedidosMap.values()) {
-      const gruposCupcakes = {};
-
-      for (let i = 0; i < pedido.ingredientes.length; i += 4) {
-        const grupo = pedido.ingredientes.slice(i, i + 4);
-
-        const cupcake = {
-          tamanho: null,
-          recheio: null,
-          cobertura: null,
-          cor_cobertura: null,
-          quantidade: 1
-        };
-
-        for (const ingrediente of grupo) {
-          if (ingrediente.tipo && ingrediente.nome) {
-            cupcake[ingrediente.tipo] = ingrediente.nome;
-            cupcake.quantidade = ingrediente.quantidade;
-          }
-        }
-
-        const chave = `${cupcake.tamanho}-${cupcake.recheio}-${cupcake.cobertura}-${cupcake.cor_cobertura}`;
-
-        if (!gruposCupcakes[chave]) {
-          gruposCupcakes[chave] = { ...cupcake };
-        } else {
-          gruposCupcakes[chave].quantidade += cupcake.quantidade;
-        }
-      }
-
-      pedido.cupcakes = Object.values(gruposCupcakes);
-      delete pedido.ingredientes;
+      pedido.cupcakes = Array.from(pedido.cupcakesMap.values());
+      delete pedido.cupcakesMap;
       pedidosFinal.push(pedido);
     }
 
