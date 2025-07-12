@@ -77,7 +77,7 @@ export async function listarPedidosAdmin(req, res) {
     const pedidosFinal = [];
 
     for (const pedido of pedidosMap.values()) {
-      const cupcakes = [];
+      const cupcakesMap = new Map();
 
       const porTipo = {
         tamanho: [],
@@ -100,18 +100,28 @@ export async function listarPedidosAdmin(req, res) {
       );
 
       for (let i = 0; i < totalCupcakes; i++) {
-        const cupcake = {
-          tamanho: porTipo.tamanho[i]?.nome || 'Não especificado',
-          recheio: porTipo.recheio[i]?.nome || 'Não especificado',
-          cobertura: porTipo.cobertura[i]?.nome || 'Não especificado',
-          cor_cobertura: porTipo.cor_cobertura[i]?.nome || 'Não especificado',
-          quantidade: porTipo.tamanho[i]?.quantidade || 1
-        };
+        const tamanho = porTipo.tamanho[i]?.nome || 'Não especificado';
+        const recheio = porTipo.recheio[i]?.nome || 'Não especificado';
+        const cobertura = porTipo.cobertura[i]?.nome || 'Não especificado';
+        const cor = porTipo.cor_cobertura[i]?.nome || 'Não especificado';
+        const quantidade = porTipo.tamanho[i]?.quantidade || 1;
 
-        cupcakes.push(cupcake);
+        const chave = `${tamanho}-${recheio}-${cobertura}-${cor}`;
+
+        if (!cupcakesMap.has(chave)) {
+          cupcakesMap.set(chave, {
+            tamanho,
+            recheio,
+            cobertura,
+            cor_cobertura: cor,
+            quantidade
+          });
+        } else {
+          cupcakesMap.get(chave).quantidade += quantidade;
+        }
       }
 
-      pedido.cupcakes = cupcakes;
+      pedido.cupcakes = Array.from(cupcakesMap.values());
       delete pedido.ingredientes;
       pedidosFinal.push(pedido);
     }
