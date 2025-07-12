@@ -29,8 +29,9 @@ export async function finalizarPedido(req, res) {
 
       for (const item of ingredientes) {
         await pool.query(
-          `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade) VALUES (?, ?, ?)`,
-          [id_novo_pedido, item.id_ingrediente, item.quantidade]
+          `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade, id_cupcake)
+           VALUES (?, ?, ?, ?)`,
+          [id_novo_pedido, item.id_ingrediente, item.quantidade, pedido.id_pedido_carrinho]
         );
       }
 
@@ -48,6 +49,7 @@ export async function finalizarPedido(req, res) {
       pedidos: listaPedidos
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ mensagem: 'Erro ao finalizar pedidos.' });
   }
 }
