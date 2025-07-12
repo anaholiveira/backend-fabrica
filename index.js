@@ -140,6 +140,7 @@ app.post('/feedbacks', async (req, res) => {
       mensagem: 'Feedback adicionado com sucesso'
     });
   } catch (error) {
+    console.error('Erro no POST /feedbacks:', error); 
     res.status(400).json({ erro: 'Não foi possível cadastrar o feedback' });
   }
 });
