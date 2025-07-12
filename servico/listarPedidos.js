@@ -77,36 +77,47 @@ export async function listarPedidosAdmin(req, res) {
     const pedidosFinal = [];
 
     for (const pedido of pedidosMap.values()) {
-      const gruposCupcakes = {};
+      const cupcakes = [];
 
-      for (let i = 0; i < pedido.ingredientes.length; i += 4) {
-        const grupo = pedido.ingredientes.slice(i, i + 4);
+      const grupos = {};
 
+      for (const ingrediente of pedido.ingredientes) {
+        const chave = ingrediente.quantidade;
+
+        if (!grupos[chave]) {
+          grupos[chave] = [];
+        }
+
+        grupos[chave].push(ingrediente);
+      }
+
+      for (const grupo of Object.values(grupos)) {
         const cupcake = {
           tamanho: null,
           recheio: null,
           cobertura: null,
           cor_cobertura: null,
-          quantidade: 1
+          quantidade: grupo[0]?.quantidade || 1
         };
 
         for (const ingrediente of grupo) {
-          if (ingrediente.tipo && ingrediente.nome) {
-            cupcake[ingrediente.tipo] = ingrediente.nome;
-            cupcake.quantidade = ingrediente.quantidade;
-          }
+          if (ingrediente.tipo === 'tamanho') cupcake.tamanho = ingrediente.nome;
+          else if (ingrediente.tipo === 'recheio') cupcake.recheio = ingrediente.nome;
+          else if (ingrediente.tipo === 'cobertura') cupcake.cobertura = ingrediente.nome;
+          else if (ingrediente.tipo === 'cor_cobertura') cupcake.cor_cobertura = ingrediente.nome;
         }
 
-        const chave = `${cupcake.tamanho}-${cupcake.recheio}-${cupcake.cobertura}-${cupcake.cor_cobertura}`;
-
-        if (!gruposCupcakes[chave]) {
-          gruposCupcakes[chave] = { ...cupcake };
-        } else {
-          gruposCupcakes[chave].quantidade += cupcake.quantidade;
+        if (
+          cupcake.tamanho &&
+          cupcake.recheio &&
+          cupcake.cobertura &&
+          cupcake.cor_cobertura
+        ) {
+          cupcakes.push(cupcake);
         }
       }
 
-      pedido.cupcakes = Object.values(gruposCupcakes);
+      pedido.cupcakes = cupcakes;
       delete pedido.ingredientes;
       pedidosFinal.push(pedido);
     }
