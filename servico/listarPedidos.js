@@ -104,7 +104,7 @@ export async function listarPedidosAdmin(req, res) {
         const recheio = porTipo.recheio[i]?.nome || 'Não especificado';
         const cobertura = porTipo.cobertura[i]?.nome || 'Não especificado';
         const cor = porTipo.cor_cobertura[i]?.nome || 'Não especificado';
-        const quantidade = porTipo.tamanho[i]?.quantidade || 1;
+        const quantidade = 1;
 
         const chave = `${tamanho}-${recheio}-${cobertura}-${cor}`;
 
@@ -117,7 +117,7 @@ export async function listarPedidosAdmin(req, res) {
             quantidade
           });
         } else {
-          cupcakesMap.get(chave).quantidade += quantidade;
+          cupcakesMap.get(chave).quantidade += 1;
         }
       }
 
