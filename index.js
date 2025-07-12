@@ -129,6 +129,7 @@ app.get('/feedbacks', async (req, res) => {
 app.post('/feedbacks', async (req, res) => {
   const { id_cliente, estrelas, comentario, foto } = req.body;
   try {
+    console.log(`Recebendo feedback - tamanho foto base64: ${foto?.length || 0} caracteres`);
     const novoFeedback = await adicionarFeedback({
       id_cliente,
       estrelas,
@@ -140,7 +141,7 @@ app.post('/feedbacks', async (req, res) => {
       mensagem: 'Feedback adicionado com sucesso'
     });
   } catch (error) {
-    console.error('Erro no POST /feedbacks:', error); 
+    console.error('Erro no POST /feedbacks:', error);
     res.status(400).json({ erro: 'Não foi possível cadastrar o feedback' });
   }
 });
