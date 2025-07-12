@@ -66,22 +66,23 @@ export async function listarPedidosAdmin(req, res) {
       const pedido = pedidosMap.get(id);
 
       if (row.tipo && row.nome_ingrediente) {
-        pedido.ingredientes.push({
-          tipo: row.tipo,
-          nome: row.nome_ingrediente,
-          quantidade: row.quantidade_ingrediente
-        });
+        for (let i = 0; i < row.quantidade_ingrediente; i++) {
+          pedido.ingredientes.push({
+            tipo: row.tipo,
+            nome: row.nome_ingrediente
+          });
+        }
       }
     }
 
     const pedidosFinal = [];
 
     for (const pedido of pedidosMap.values()) {
-      const gruposCupcakes = {};
+      const ingredientes = pedido.ingredientes;
+      const cupcakes = [];
 
-      for (let i = 0; i < pedido.ingredientes.length; i += 4) {
-        const grupo = pedido.ingredientes.slice(i, i + 4);
-
+      for (let i = 0; i < ingredientes.length; i += 4) {
+        const grupo = ingredientes.slice(i, i + 4);
         const cupcake = {
           tamanho: null,
           recheio: null,
@@ -90,23 +91,17 @@ export async function listarPedidosAdmin(req, res) {
           quantidade: 1
         };
 
-        for (const ingrediente of grupo) {
-          if (ingrediente.tipo && ingrediente.nome) {
-            cupcake[ingrediente.tipo] = ingrediente.nome;
-            cupcake.quantidade = ingrediente.quantidade;
-          }
+        for (const ing of grupo) {
+          if (ing.tipo === 'tamanho') cupcake.tamanho = ing.nome;
+          if (ing.tipo === 'recheio') cupcake.recheio = ing.nome;
+          if (ing.tipo === 'cobertura') cupcake.cobertura = ing.nome;
+          if (ing.tipo === 'cor_cobertura') cupcake.cor_cobertura = ing.nome;
         }
 
-        const chave = `${cupcake.tamanho}-${cupcake.recheio}-${cupcake.cobertura}-${cupcake.cor_cobertura}`;
-
-        if (!gruposCupcakes[chave]) {
-          gruposCupcakes[chave] = { ...cupcake };
-        } else {
-          gruposCupcakes[chave].quantidade += cupcake.quantidade;
-        }
+        cupcakes.push(cupcake);
       }
 
-      pedido.cupcakes = Object.values(gruposCupcakes);
+      pedido.cupcakes = cupcakes;
       delete pedido.ingredientes;
       pedidosFinal.push(pedido);
     }
