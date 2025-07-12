@@ -75,9 +75,9 @@ export async function listarPedidosAdmin(req, res) {
     const pedidosFinal = [];
 
     for (const pedido of pedidosMap.values()) {
-      const cupcakesMap = new Map();
       const ingredientes = pedido.ingredientes;
       const totalCupcakes = Math.floor(ingredientes.length / 4);
+      const cupcakes = [];
 
       for (let i = 0; i < totalCupcakes; i++) {
         const grupo = ingredientes.slice(i * 4, i * 4 + 4);
@@ -96,16 +96,10 @@ export async function listarPedidosAdmin(req, res) {
           if (ing.tipo === 'cor_cobertura') cupcake.cor_cobertura = ing.nome;
         }
 
-        const chave = `${cupcake.tamanho}-${cupcake.recheio}-${cupcake.cobertura}-${cupcake.cor_cobertura}`;
-
-        if (!cupcakesMap.has(chave)) {
-          cupcakesMap.set(chave, { ...cupcake, quantidade: 1 });
-        } else {
-          cupcakesMap.get(chave).quantidade += 1;
-        }
+        cupcakes.push(cupcake);
       }
 
-      pedido.cupcakes = Array.from(cupcakesMap.values());
+      pedido.cupcakes = cupcakes;
       delete pedido.ingredientes;
       pedidosFinal.push(pedido);
     }
