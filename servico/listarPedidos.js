@@ -29,7 +29,7 @@ export async function listarPedidosAdmin(req, res) {
       LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
       LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
       WHERE p.status = ?
-      ORDER BY p.id_pedido, pi.id_cupcake, i.tipo
+      ORDER BY p.id_pedido, p.data_criacao, pi.id_cupcake
     `;
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
@@ -60,35 +60,36 @@ export async function listarPedidosAdmin(req, res) {
           bairro: row.bairro,
           cep: row.cep,
           complemento: row.complemento,
-          cupcakes: new Map()
+          cupcakes: {}
         });
       }
 
       const pedido = pedidosMap.get(id);
 
-      const idCupcake = row.id_cupcake;
-      if (!pedido.cupcakes.has(idCupcake)) {
-        pedido.cupcakes.set(idCupcake, {
-          tamanho: 'Não especificado',
-          recheio: 'Não especificado',
-          cobertura: 'Não especificado',
-          cor_cobertura: 'Não especificado',
-          quantidade: 1
-        });
+      if (row.id_cupcake != null && row.tipo && row.nome_ingrediente) {
+        if (!pedido.cupcakes[row.id_cupcake]) {
+          pedido.cupcakes[row.id_cupcake] = {
+            tamanho: 'Não especificado',
+            recheio: 'Não especificado',
+            cobertura: 'Não especificado',
+            cor_cobertura: 'Não especificado',
+            quantidade: 1
+          };
+        }
+
+        const cupcake = pedido.cupcakes[row.id_cupcake];
+
+        if (row.tipo === 'tamanho') cupcake.tamanho = row.nome_ingrediente;
+        else if (row.tipo === 'recheio') cupcake.recheio = row.nome_ingrediente;
+        else if (row.tipo === 'cobertura') cupcake.cobertura = row.nome_ingrediente;
+        else if (row.tipo === 'cor_cobertura') cupcake.cor_cobertura = row.nome_ingrediente;
       }
-
-      const cupcake = pedido.cupcakes.get(idCupcake);
-
-      if (row.tipo === 'tamanho') cupcake.tamanho = row.nome_ingrediente;
-      else if (row.tipo === 'recheio') cupcake.recheio = row.nome_ingrediente;
-      else if (row.tipo === 'cobertura') cupcake.cobertura = row.nome_ingrediente;
-      else if (row.tipo === 'cor_cobertura') cupcake.cor_cobertura = row.nome_ingrediente;
     }
 
     const pedidosFinal = [];
 
     for (const pedido of pedidosMap.values()) {
-      pedido.cupcakes = Array.from(pedido.cupcakes.values());
+      pedido.cupcakes = Object.values(pedido.cupcakes);
       pedidosFinal.push(pedido);
     }
 
