@@ -78,42 +78,37 @@ export async function listarPedidosAdmin(req, res) {
 
     for (const pedido of pedidosMap.values()) {
       const cupcakes = [];
-
-      const grupos = {};
+      let grupoAtual = [];
 
       for (const ingrediente of pedido.ingredientes) {
-        const chave = ingrediente.quantidade;
+        grupoAtual.push(ingrediente);
 
-        if (!grupos[chave]) {
-          grupos[chave] = [];
-        }
+        if (grupoAtual.length === 4) {
+          const cupcake = {
+            tamanho: null,
+            recheio: null,
+            cobertura: null,
+            cor_cobertura: null,
+            quantidade: grupoAtual[0]?.quantidade || 1
+          };
 
-        grupos[chave].push(ingrediente);
-      }
+          for (const item of grupoAtual) {
+            if (item.tipo === 'tamanho') cupcake.tamanho = item.nome;
+            else if (item.tipo === 'recheio') cupcake.recheio = item.nome;
+            else if (item.tipo === 'cobertura') cupcake.cobertura = item.nome;
+            else if (item.tipo === 'cor_cobertura') cupcake.cor_cobertura = item.nome;
+          }
 
-      for (const grupo of Object.values(grupos)) {
-        const cupcake = {
-          tamanho: null,
-          recheio: null,
-          cobertura: null,
-          cor_cobertura: null,
-          quantidade: grupo[0]?.quantidade || 1
-        };
+          if (
+            cupcake.tamanho &&
+            cupcake.recheio &&
+            cupcake.cobertura &&
+            cupcake.cor_cobertura
+          ) {
+            cupcakes.push(cupcake);
+          }
 
-        for (const ingrediente of grupo) {
-          if (ingrediente.tipo === 'tamanho') cupcake.tamanho = ingrediente.nome;
-          else if (ingrediente.tipo === 'recheio') cupcake.recheio = ingrediente.nome;
-          else if (ingrediente.tipo === 'cobertura') cupcake.cobertura = ingrediente.nome;
-          else if (ingrediente.tipo === 'cor_cobertura') cupcake.cor_cobertura = ingrediente.nome;
-        }
-
-        if (
-          cupcake.tamanho &&
-          cupcake.recheio &&
-          cupcake.cobertura &&
-          cupcake.cor_cobertura
-        ) {
-          cupcakes.push(cupcake);
+          grupoAtual = [];
         }
       }
 
