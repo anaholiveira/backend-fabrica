@@ -66,37 +66,40 @@ export async function listarPedidosAdmin(req, res) {
       const pedido = pedidosMap.get(id);
 
       if (row.tipo && row.nome_ingrediente) {
-        pedido.ingredientes.push({
-          tipo: row.tipo,
-          nome: row.nome_ingrediente,
-          quantidade: row.quantidade_ingrediente || 1
-        });
+        for (let i = 0; i < row.quantidade_ingrediente; i++) {
+          pedido.ingredientes.push({
+            tipo: row.tipo,
+            nome: row.nome_ingrediente
+          });
+        }
       }
     }
 
     const pedidosFinal = [];
 
     for (const pedido of pedidosMap.values()) {
-      const maxQuantidade = Math.max(...pedido.ingredientes.map(ing => ing.quantidade));
-
+      const ingredientes = pedido.ingredientes;
       const cupcakes = [];
 
-      for (let i = 0; i < maxQuantidade; i++) {
-        cupcakes[i] = {
-          tamanho: "Não especificado",
-          recheio: "Não especificado",
-          cobertura: "Não especificado",
-          cor_cobertura: "Não especificado",
+      for (let i = 0; i < ingredientes.length; i += 4) {
+        const grupo = ingredientes.slice(i, i + 4);
+
+        const cupcake = {
+          tamanho: 'Não especificado',
+          recheio: 'Não especificado',
+          cobertura: 'Não especificado',
+          cor_cobertura: 'Não especificado',
           quantidade: 1
         };
-      }
 
-      for (const ing of pedido.ingredientes) {
-        for (let i = 0; i < ing.quantidade; i++) {
-          if (cupcakes[i]) {
-            cupcakes[i][ing.tipo] = ing.nome;
-          }
+        for (const ing of grupo) {
+          if (ing.tipo === 'tamanho') cupcake.tamanho = ing.nome;
+          else if (ing.tipo === 'recheio') cupcake.recheio = ing.nome;
+          else if (ing.tipo === 'cobertura') cupcake.cobertura = ing.nome;
+          else if (ing.tipo === 'cor_cobertura') cupcake.cor_cobertura = ing.nome;
         }
+
+        cupcakes.push(cupcake);
       }
 
       pedido.cupcakes = cupcakes;
