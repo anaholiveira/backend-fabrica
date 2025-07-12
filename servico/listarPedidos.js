@@ -37,55 +37,53 @@ export async function listarPedidosAdmin(req, res) {
     const pedidosMap = new Map();
 
     for (const row of rows) {
-      const id = row.id_pedido;
+  const id = row.id_pedido;
 
-      if (!pedidosMap.has(id)) {
-        pedidosMap.set(id, {
-          id_pedido: id,
-          data_criacao: new Date(row.data_criacao).toLocaleString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
-          id_cliente: row.id_cliente,
-          email_cliente: row.email_cliente,
-          nome_completo: row.nome_completo,
-          valor_total: parseFloat(row.valor_total),
-          forma_pagamento: row.forma_pagamento,
-          status: row.status,
-          rua: row.rua,
-          numero: row.numero,
-          bairro: row.bairro,
-          cep: row.cep,
-          complemento: row.complemento,
-          cupcakesMap: new Map()
-        });
-      }
+  if (!pedidosMap.has(id)) {
+    pedidosMap.set(id, {
+      id_pedido: id,
+      data_criacao: new Date(row.data_criacao).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      id_cliente: row.id_cliente,
+      email_cliente: row.email_cliente,
+      nome_completo: row.nome_completo,
+      valor_total: parseFloat(row.valor_total),
+      forma_pagamento: row.forma_pagamento,
+      status: row.status,
+      rua: row.rua,
+      numero: row.numero,
+      bairro: row.bairro,
+      cep: row.cep,
+      complemento: row.complemento,
+      cupcakesMap: new Map()
+    });
+  }
 
-      const pedido = pedidosMap.get(id);
-      const idCupcake = row.id_cupcake;
+  const pedido = pedidosMap.get(id);
+  const idCupcake = row.id_cupcake;
 
-      if (idCupcake != null && row.tipo && row.nome_ingrediente) {
-        if (!pedido.cupcakesMap.has(idCupcake)) {
-          pedido.cupcakesMap.set(idCupcake, {
-            tamanho: 'Não especificado',
-            recheio: 'Não especificado',
-            cobertura: 'Não especificado',
-            cor_cobertura: 'Não especificado',
-            quantidade: row.quantidade_cupcake || 1
-          });
-        }
+  if (!pedido.cupcakesMap.has(idCupcake)) {
+    pedido.cupcakesMap.set(idCupcake, {
+      tamanho: 'Não especificado',
+      recheio: 'Não especificado',
+      cobertura: 'Não especificado',
+      cor_cobertura: 'Não especificado',
+      quantidade: row.quantidade_cupcake || 1
+    });
+  }
 
-        const cupcake = pedido.cupcakesMap.get(idCupcake);
+  const cupcake = pedido.cupcakesMap.get(idCupcake);
 
-        if (row.tipo === 'tamanho') cupcake.tamanho = row.nome_ingrediente;
-        else if (row.tipo === 'recheio') cupcake.recheio = row.nome_ingrediente;
-        else if (row.tipo === 'cobertura') cupcake.cobertura = row.nome_ingrediente;
-        else if (row.tipo === 'cor_cobertura') cupcake.cor_cobertura = row.nome_ingrediente;
-      }
-    }
+  if (row.tipo === 'tamanho') cupcake.tamanho = row.nome_ingrediente;
+  else if (row.tipo === 'recheio') cupcake.recheio = row.nome_ingrediente;
+  else if (row.tipo === 'cobertura') cupcake.cobertura = row.nome_ingrediente;
+  else if (row.tipo === 'cor_cobertura') cupcake.cor_cobertura = row.nome_ingrediente;
+}
 
     const pedidosFinal = [];
 
