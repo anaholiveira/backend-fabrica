@@ -79,43 +79,32 @@ export async function listarPedidosAdmin(req, res) {
     for (const pedido of pedidosMap.values()) {
       const cupcakesMap = new Map();
 
-      const porTipo = {
-        tamanho: [],
-        recheio: [],
-        cobertura: [],
-        cor_cobertura: []
-      };
+      const ingredientesOrdenados = pedido.ingredientes;
 
-      for (const ingrediente of pedido.ingredientes) {
-        if (porTipo[ingrediente.tipo]) {
-          porTipo[ingrediente.tipo].push(ingrediente);
+      const totalGrupos = Math.floor(ingredientesOrdenados.length / 4);
+
+      for (let i = 0; i < totalGrupos; i++) {
+        const grupo = ingredientesOrdenados.slice(i * 4, i * 4 + 4);
+
+        let cupcake = {
+          tamanho: null,
+          recheio: null,
+          cobertura: null,
+          cor_cobertura: null,
+          quantidade: 1
+        };
+
+        for (const ing of grupo) {
+          if (ing.tipo === 'tamanho') cupcake.tamanho = ing.nome;
+          if (ing.tipo === 'recheio') cupcake.recheio = ing.nome;
+          if (ing.tipo === 'cobertura') cupcake.cobertura = ing.nome;
+          if (ing.tipo === 'cor_cobertura') cupcake.cor_cobertura = ing.nome;
         }
-      }
 
-      const totalCupcakes = Math.min(
-        porTipo.tamanho.length,
-        porTipo.recheio.length,
-        porTipo.cobertura.length,
-        porTipo.cor_cobertura.length
-      );
-
-      for (let i = 0; i < totalCupcakes; i++) {
-        const tamanho = porTipo.tamanho[i]?.nome || 'Não especificado';
-        const recheio = porTipo.recheio[i]?.nome || 'Não especificado';
-        const cobertura = porTipo.cobertura[i]?.nome || 'Não especificado';
-        const cor = porTipo.cor_cobertura[i]?.nome || 'Não especificado';
-        const quantidade = 1;
-
-        const chave = `${tamanho}-${recheio}-${cobertura}-${cor}`;
+        const chave = `${cupcake.tamanho}-${cupcake.recheio}-${cupcake.cobertura}-${cupcake.cor_cobertura}`;
 
         if (!cupcakesMap.has(chave)) {
-          cupcakesMap.set(chave, {
-            tamanho,
-            recheio,
-            cobertura,
-            cor_cobertura: cor,
-            quantidade
-          });
+          cupcakesMap.set(chave, { ...cupcake });
         } else {
           cupcakesMap.get(chave).quantidade += 1;
         }
