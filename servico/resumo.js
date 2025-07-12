@@ -75,7 +75,6 @@ export async function registrarResumoPedido(req, res) {
   }
 
   const conn = await pool.getConnection();
-
   try {
     await conn.beginTransaction();
 
@@ -94,43 +93,26 @@ export async function registrarResumoPedido(req, res) {
     const pedidosAntigos = pedidosAguardando.slice(1);
 
     await conn.query(
-      `UPDATE pedidos
-       SET forma_pagamento = ?, valor_total = ?
-       WHERE id_pedido = ?`,
+      `UPDATE pedidos SET forma_pagamento = ?, valor_total = ? WHERE id_pedido = ?`,
       [forma_pagamento, valor_total, novoPedidoId]
     );
 
-    const [carrinhos] = await conn.query(
-      `SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?`,
+    const [cupcakesCarrinho] = await conn.query(
+      `SELECT id_pedido_carrinho, quantidade FROM pedidosCarrinho WHERE id_cliente = ?`,
       [id_cliente]
     );
 
-    for (const carrinho of carrinhos) {
+    for (const cupcake of cupcakesCarrinho) {
       const [ingredientes] = await conn.query(
         `SELECT id_ingrediente FROM pedidosCarrinho_ingredientes WHERE id_pedido_carrinho = ?`,
-        [carrinho.id_pedido_carrinho]
+        [cupcake.id_pedido_carrinho]
       );
 
-      for (const ing of ingredientes) {
+      for (const ingrediente of ingredientes) {
         await conn.query(
           `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade, id_cupcake)
            VALUES (?, ?, ?, ?)`,
-          [novoPedidoId, ing.id_ingrediente, 1, carrinho.id_pedido_carrinho]
-        );
-      }
-    }
-
-    for (const pedido of pedidosAntigos) {
-      const [ingredientesAntigos] = await conn.query(
-        `SELECT id_ingrediente, quantidade, id_cupcake FROM pedido_ingredientes WHERE id_pedido = ?`,
-        [pedido.id_pedido]
-      );
-
-      for (const ing of ingredientesAntigos) {
-        await conn.query(
-          `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade, id_cupcake)
-           VALUES (?, ?, ?, ?)`,
-          [novoPedidoId, ing.id_ingrediente, ing.quantidade, ing.id_cupcake || null]
+          [novoPedidoId, ingrediente.id_ingrediente, cupcake.quantidade, cupcake.id_pedido_carrinho]
         );
       }
     }
@@ -141,19 +123,17 @@ export async function registrarResumoPedido(req, res) {
       await conn.query(`DELETE FROM pedidos WHERE id_pedido IN (?)`, [idsAntigos]);
     }
 
-    await conn.query(
-      `DELETE FROM pedidosCarrinho_ingredientes
-       WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)`,
+    await conn.query(`DELETE FROM pedidosCarrinho_ingredientes
+      WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)`,
       [id_cliente]
     );
-
     await conn.query(`DELETE FROM pedidosCarrinho WHERE id_cliente = ?`, [id_cliente]);
 
     await conn.commit();
-
     res.status(201).json({ mensagem: 'Resumo do pedido registrado com sucesso.', id_pedido: novoPedidoId });
   } catch (error) {
     await conn.rollback();
+    console.error(error);
     res.status(500).json({ erro: error.message });
   } finally {
     conn.release();
