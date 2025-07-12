@@ -131,7 +131,7 @@ export async function registrarResumoPedido(req, res) {
           await conn.query(
             `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade, id_cupcake)
              VALUES (?, ?, ?, ?)`,
-            [novoPedidoId, ing.id_ingrediente, ing.quantidade, ing.id_cupcake]
+            [novoPedidoId, ing.id_ingrediente, ing.quantidade, ing.id_cupcake || null]
           );
         }
       }
