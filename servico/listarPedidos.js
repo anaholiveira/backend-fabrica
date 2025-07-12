@@ -65,7 +65,8 @@ export async function listarPedidosAdmin(req, res) {
       }
 
       const pedido = pedidosMap.get(idPedido);
-      const idCupcake = row.id_cupcake || `${idPedido}-semid`;
+
+      const idCupcake = `${idPedido}-${row.id_cupcake ?? 'semid'}`;
 
       if (!pedido.cupcakesMap.has(idCupcake)) {
         pedido.cupcakesMap.set(idCupcake, {
