@@ -75,6 +75,7 @@ export async function registrarResumoPedido(req, res) {
   }
 
   const conn = await pool.getConnection();
+
   try {
     await conn.beginTransaction();
 
@@ -119,18 +120,54 @@ export async function registrarResumoPedido(req, res) {
 
     if (pedidosAntigos.length > 0) {
       const idsAntigos = pedidosAntigos.map(p => p.id_pedido);
+
+      for (const pedido of pedidosAntigos) {
+        const [ingredientesAntigos] = await conn.query(
+          `SELECT id_ingrediente, quantidade, id_cupcake FROM pedido_ingredientes WHERE id_pedido = ?`,
+          [pedido.id_pedido]
+        );
+
+        for (const ing of ingredientesAntigos) {
+          await conn.query(
+            `INSERT INTO pedido_ingredientes (id_pedido, id_ingrediente, quantidade, id_cupcake)
+             VALUES (?, ?, ?, ?)`,
+            [novoPedidoId, ing.id_ingrediente, ing.quantidade, ing.id_cupcake || null]
+          );
+        }
+      }
+
       await conn.query(`DELETE FROM pedido_ingredientes WHERE id_pedido IN (?)`, [idsAntigos]);
       await conn.query(`DELETE FROM pedidos WHERE id_pedido IN (?)`, [idsAntigos]);
     }
 
-    await conn.query(`DELETE FROM pedidosCarrinho_ingredientes
-      WHERE id_pedido_carrinho IN (SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?)`,
+    const [endereco] = await conn.query(
+      `SELECT id_endereco FROM enderecos WHERE id_cliente = ? ORDER BY id_endereco DESC LIMIT 1`,
       [id_cliente]
     );
+
+    if (endereco.length > 0) {
+      await conn.query(
+        `UPDATE pedidos SET id_endereco = ? WHERE id_pedido = ?`,
+        [endereco[0].id_endereco, novoPedidoId]
+      );
+    }
+
+    await conn.query(
+      `DELETE FROM pedidosCarrinho_ingredientes
+       WHERE id_pedido_carrinho IN (
+         SELECT id_pedido_carrinho FROM pedidosCarrinho WHERE id_cliente = ?
+       )`,
+      [id_cliente]
+    );
+
     await conn.query(`DELETE FROM pedidosCarrinho WHERE id_cliente = ?`, [id_cliente]);
 
     await conn.commit();
-    res.status(201).json({ mensagem: 'Resumo do pedido registrado com sucesso.', id_pedido: novoPedidoId });
+
+    res.status(201).json({
+      mensagem: 'Resumo do pedido registrado com sucesso.',
+      id_pedido: novoPedidoId
+    });
   } catch (error) {
     await conn.rollback();
     console.error(error);
