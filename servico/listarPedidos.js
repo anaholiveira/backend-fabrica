@@ -60,36 +60,41 @@ export async function listarPedidosAdmin(req, res) {
           bairro: row.bairro,
           cep: row.cep,
           complemento: row.complemento,
-          cupcakes: {}
+          cupcakesMap: new Map()
         });
       }
 
       const pedido = pedidosMap.get(id);
 
-      if (row.id_cupcake != null && row.tipo && row.nome_ingrediente) {
-        if (!pedido.cupcakes[row.id_cupcake]) {
-          pedido.cupcakes[row.id_cupcake] = {
+      const idCupcake = row.id_cupcake;
+
+      if (idCupcake != null && row.tipo && row.nome_ingrediente) {
+        if (!pedido.cupcakesMap.has(idCupcake)) {
+          pedido.cupcakesMap.set(idCupcake, {
             tamanho: 'Não especificado',
             recheio: 'Não especificado',
             cobertura: 'Não especificado',
             cor_cobertura: 'Não especificado',
-            quantidade: 1
-          };
+            quantidade: 0
+          });
         }
 
-        const cupcake = pedido.cupcakes[row.id_cupcake];
+        const cupcake = pedido.cupcakesMap.get(idCupcake);
 
         if (row.tipo === 'tamanho') cupcake.tamanho = row.nome_ingrediente;
         else if (row.tipo === 'recheio') cupcake.recheio = row.nome_ingrediente;
         else if (row.tipo === 'cobertura') cupcake.cobertura = row.nome_ingrediente;
         else if (row.tipo === 'cor_cobertura') cupcake.cor_cobertura = row.nome_ingrediente;
+
+        cupcake.quantidade = row.quantidade_ingrediente;
       }
     }
 
     const pedidosFinal = [];
 
     for (const pedido of pedidosMap.values()) {
-      pedido.cupcakes = Object.values(pedido.cupcakes);
+      pedido.cupcakes = Array.from(pedido.cupcakesMap.values());
+      delete pedido.cupcakesMap;
       pedidosFinal.push(pedido);
     }
 
