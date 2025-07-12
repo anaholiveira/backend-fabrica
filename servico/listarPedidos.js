@@ -16,7 +16,7 @@ export async function listarPedidosAdmin(req, res) {
         p.status,
         i.nome AS nome_ingrediente,
         i.tipo,
-        pi.quantidade AS quantidade_ingrediente,
+        pi.quantidade,
         e.rua,
         e.numero,
         e.bairro,
@@ -28,7 +28,7 @@ export async function listarPedidosAdmin(req, res) {
       LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
       LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
       WHERE p.status = ?
-      ORDER BY p.id_pedido, i.tipo
+      ORDER BY p.id_pedido, p.data_criacao
     `;
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
@@ -59,46 +59,31 @@ export async function listarPedidosAdmin(req, res) {
           bairro: row.bairro,
           cep: row.cep,
           complemento: row.complemento,
-          ingredientesPorCupcake: []
+          ingredientes: []
         });
       }
 
       const pedido = pedidosMap.get(id);
 
-      if (row.tipo && row.nome_ingrediente) {
-        pedido.ingredientesPorCupcake.push({
-          tipo: row.tipo,
-          nome: row.nome_ingrediente,
-          quantidade: row.quantidade_ingrediente || 1
-        });
+      if (row.tipo && row.nome_ingrediente && row.quantidade) {
+        for (let i = 0; i < row.quantidade; i++) {
+          pedido.ingredientes.push({
+            tipo: row.tipo,
+            nome: row.nome_ingrediente
+          });
+        }
       }
     }
 
     const pedidosFinal = [];
 
     for (const pedido of pedidosMap.values()) {
-
-      const ingredientesPorTipo = {
-        tamanho: [],
-        recheio: [],
-        cobertura: [],
-        cor_cobertura: []
-      };
-
-      for (const ing of pedido.ingredientesPorCupcake) {
-        ingredientesPorTipo[ing.tipo].push({
-          nome: ing.nome,
-          quantidade: ing.quantidade
-        });
-      }
-
-      const somaQuantidade = tipoArray => tipoArray.reduce((acc, cur) => acc + cur.quantidade, 0);
-      const quantidadesTotais = Object.values(ingredientesPorTipo).map(somaQuantidade);
-      const totalCupcakes = Math.max(...quantidadesTotais, 0);
-
+      const ingredientes = pedido.ingredientes;
       const cupcakes = [];
 
-      for (let i = 0; i < totalCupcakes; i++) {
+      for (let i = 0; i < ingredientes.length; i += 4) {
+        const grupo = ingredientes.slice(i, i + 4);
+
         const cupcake = {
           tamanho: null,
           recheio: null,
@@ -106,24 +91,18 @@ export async function listarPedidosAdmin(req, res) {
           cor_cobertura: null
         };
 
-        for (const tipo of ['tamanho', 'recheio', 'cobertura', 'cor_cobertura']) {
-          let acumulado = 0;
-          const lista = ingredientesPorTipo[tipo];
-
-          for (const ing of lista) {
-            acumulado += ing.quantidade;
-            if (i < acumulado) {
-              cupcake[tipo] = ing.nome;
-              break;
-            }
-          }
+        for (const ing of grupo) {
+          if (ing.tipo === 'tamanho') cupcake.tamanho = ing.nome;
+          if (ing.tipo === 'recheio') cupcake.recheio = ing.nome;
+          if (ing.tipo === 'cobertura') cupcake.cobertura = ing.nome;
+          if (ing.tipo === 'cor_cobertura') cupcake.cor_cobertura = ing.nome;
         }
 
         cupcakes.push(cupcake);
       }
 
       pedido.cupcakes = cupcakes;
-      delete pedido.ingredientesPorCupcake;
+      delete pedido.ingredientes;
       pedidosFinal.push(pedido);
     }
 
