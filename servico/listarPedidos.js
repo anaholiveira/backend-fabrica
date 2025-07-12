@@ -69,7 +69,7 @@ export async function listarPedidosAdmin(req, res) {
         pedido.ingredientes.push({
           tipo: row.tipo,
           nome: row.nome_ingrediente,
-          quantidade: row.quantidade_ingrediente
+          quantidade: row.quantidade_ingrediente || 1
         });
       }
     }
@@ -77,50 +77,29 @@ export async function listarPedidosAdmin(req, res) {
     const pedidosFinal = [];
 
     for (const pedido of pedidosMap.values()) {
-      const cupcakesMap = new Map();
-
-      const gruposCupcakeTemp = {};
-
-      let cupcakeIndex = 0;
-
       const maxQuantidade = Math.max(...pedido.ingredientes.map(ing => ing.quantidade));
 
+      const cupcakes = [];
+
       for (let i = 0; i < maxQuantidade; i++) {
-        gruposCupcakeTemp[i] = {
-          tamanho: null,
-          recheio: null,
-          cobertura: null,
-          cor_cobertura: null
+        cupcakes[i] = {
+          tamanho: "Não especificado",
+          recheio: "Não especificado",
+          cobertura: "Não especificado",
+          cor_cobertura: "Não especificado",
+          quantidade: 1
         };
       }
 
       for (const ing of pedido.ingredientes) {
-        for (let j = 0; j < ing.quantidade; j++) {
-          if (!gruposCupcakeTemp[j]) {
-            gruposCupcakeTemp[j] = {
-              tamanho: null,
-              recheio: null,
-              cobertura: null,
-              cor_cobertura: null
-            };
+        for (let i = 0; i < ing.quantidade; i++) {
+          if (cupcakes[i]) {
+            cupcakes[i][ing.tipo] = ing.nome;
           }
-          gruposCupcakeTemp[j][ing.tipo] = ing.nome;
         }
       }
 
-      for (let i = 0; i < maxQuantidade; i++) {
-        const cupcake = gruposCupcakeTemp[i];
-
-        if (!cupcake.tamanho) cupcake.tamanho = "Não especificado";
-        if (!cupcake.recheio) cupcake.recheio = "Não especificado";
-        if (!cupcake.cobertura) cupcake.cobertura = "Não especificado";
-        if (!cupcake.cor_cobertura) cupcake.cor_cobertura = "Não especificado";
-
-        cupcakesMap.set(i, { ...cupcake, quantidade: 1 });
-      }
-
-      pedido.cupcakes = Array.from(cupcakesMap.values());
-
+      pedido.cupcakes = cupcakes;
       delete pedido.ingredientes;
       pedidosFinal.push(pedido);
     }
