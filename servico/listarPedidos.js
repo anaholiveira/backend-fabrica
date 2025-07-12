@@ -37,11 +37,11 @@ export async function listarPedidosAdmin(req, res) {
     const pedidosMap = new Map();
 
     for (const row of rows) {
-      const id = row.id_pedido;
+      const idPedido = row.id_pedido;
 
-      if (!pedidosMap.has(id)) {
-        pedidosMap.set(id, {
-          id_pedido: id,
+      if (!pedidosMap.has(idPedido)) {
+        pedidosMap.set(idPedido, {
+          id_pedido: idPedido,
           data_criacao: new Date(row.data_criacao).toLocaleString('pt-BR', {
             day: '2-digit',
             month: '2-digit',
@@ -64,10 +64,8 @@ export async function listarPedidosAdmin(req, res) {
         });
       }
 
-      const pedido = pedidosMap.get(id);
-      const idCupcake = row.id_cupcake;
-
-      if (!idCupcake) continue;
+      const pedido = pedidosMap.get(idPedido);
+      const idCupcake = row.id_cupcake || `${idPedido}-semid`;
 
       if (!pedido.cupcakesMap.has(idCupcake)) {
         pedido.cupcakesMap.set(idCupcake, {
@@ -97,7 +95,7 @@ export async function listarPedidosAdmin(req, res) {
 
     res.json(pedidosFinal);
   } catch (error) {
-    console.error('Erro ao buscar pedidos:', error);
+    console.error('Erro ao buscar pedidos:', error.message);
     res.status(500).json({ mensagem: 'Erro interno no servidor ao buscar pedidos.' });
   }
 }
