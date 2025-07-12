@@ -14,10 +14,10 @@ export async function listarPedidosAdmin(req, res) {
         p.valor_total,
         p.forma_pagamento,
         p.status,
+        pi.id_cupcake,
+        pi.quantidade AS quantidade_cupcake,
         i.nome AS nome_ingrediente,
         i.tipo,
-        pi.quantidade AS quantidade_ingrediente,
-        pi.id_cupcake,
         e.rua,
         e.numero,
         e.bairro,
@@ -27,9 +27,9 @@ export async function listarPedidosAdmin(req, res) {
       JOIN clientes c ON p.id_cliente = c.id_cliente
       LEFT JOIN pedido_ingredientes pi ON p.id_pedido = pi.id_pedido
       LEFT JOIN ingredientes i ON pi.id_ingrediente = i.id_ingrediente
-      LEFT JOIN enderecos e ON p.id_cliente = e.id_cliente
+      LEFT JOIN enderecos e ON p.id_endereco = e.id_endereco
       WHERE p.status = ?
-      ORDER BY p.id_pedido, p.data_criacao, pi.id_cupcake
+      ORDER BY p.id_pedido, pi.id_cupcake
     `;
 
     const [rows] = await pool.query(query, [filtro || 'aguardando']);
@@ -65,7 +65,6 @@ export async function listarPedidosAdmin(req, res) {
       }
 
       const pedido = pedidosMap.get(id);
-
       const idCupcake = row.id_cupcake;
 
       if (idCupcake != null && row.tipo && row.nome_ingrediente) {
@@ -75,7 +74,7 @@ export async function listarPedidosAdmin(req, res) {
             recheio: 'Não especificado',
             cobertura: 'Não especificado',
             cor_cobertura: 'Não especificado',
-            quantidade: 0
+            quantidade: row.quantidade_cupcake || 1
           });
         }
 
@@ -85,8 +84,6 @@ export async function listarPedidosAdmin(req, res) {
         else if (row.tipo === 'recheio') cupcake.recheio = row.nome_ingrediente;
         else if (row.tipo === 'cobertura') cupcake.cobertura = row.nome_ingrediente;
         else if (row.tipo === 'cor_cobertura') cupcake.cor_cobertura = row.nome_ingrediente;
-
-        cupcake.quantidade = row.quantidade_ingrediente;
       }
     }
 
