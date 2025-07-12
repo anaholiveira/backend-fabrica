@@ -65,51 +65,62 @@ export async function listarPedidosAdmin(req, res) {
 
       const pedido = pedidosMap.get(id);
 
-      if (row.tipo && row.nome_ingrediente && row.quantidade_ingrediente) {
-        for (let i = 0; i < row.quantidade_ingrediente; i++) {
-          pedido.ingredientes.push({
-            tipo: row.tipo,
-            nome: row.nome_ingrediente
-          });
-        }
+      if (row.tipo && row.nome_ingrediente) {
+        pedido.ingredientes.push({
+          tipo: row.tipo,
+          nome: row.nome_ingrediente,
+          quantidade: row.quantidade_ingrediente
+        });
       }
     }
 
     const pedidosFinal = [];
 
     for (const pedido of pedidosMap.values()) {
-      const ingredientes = pedido.ingredientes;
-      const cupcakes = [];
+      const cupcakesMap = new Map();
 
-      const padrao = {
-        tamanho: 'Pequeno',
-        recheio: 'Brigadeiro',
-        cobertura: 'Chantilly',
-        cor_cobertura: 'Branco'
-      };
+      const gruposCupcakeTemp = {};
 
-      for (let i = 0; i < ingredientes.length; i += 4) {
-        const grupo = ingredientes.slice(i, i + 4);
+      let cupcakeIndex = 0;
 
-        let cupcake = {
-          tamanho: padrao.tamanho,
-          recheio: padrao.recheio,
-          cobertura: padrao.cobertura,
-          cor_cobertura: padrao.cor_cobertura,
-          quantidade: 1
+      const maxQuantidade = Math.max(...pedido.ingredientes.map(ing => ing.quantidade));
+
+      for (let i = 0; i < maxQuantidade; i++) {
+        gruposCupcakeTemp[i] = {
+          tamanho: null,
+          recheio: null,
+          cobertura: null,
+          cor_cobertura: null
         };
-
-        for (const ing of grupo) {
-          if (ing.tipo === 'tamanho') cupcake.tamanho = ing.nome;
-          if (ing.tipo === 'recheio') cupcake.recheio = ing.nome;
-          if (ing.tipo === 'cobertura') cupcake.cobertura = ing.nome;
-          if (ing.tipo === 'cor_cobertura') cupcake.cor_cobertura = ing.nome;
-        }
-
-        cupcakes.push(cupcake);
       }
 
-      pedido.cupcakes = cupcakes;
+      for (const ing of pedido.ingredientes) {
+        for (let j = 0; j < ing.quantidade; j++) {
+          if (!gruposCupcakeTemp[j]) {
+            gruposCupcakeTemp[j] = {
+              tamanho: null,
+              recheio: null,
+              cobertura: null,
+              cor_cobertura: null
+            };
+          }
+          gruposCupcakeTemp[j][ing.tipo] = ing.nome;
+        }
+      }
+
+      for (let i = 0; i < maxQuantidade; i++) {
+        const cupcake = gruposCupcakeTemp[i];
+
+        if (!cupcake.tamanho) cupcake.tamanho = "Não especificado";
+        if (!cupcake.recheio) cupcake.recheio = "Não especificado";
+        if (!cupcake.cobertura) cupcake.cobertura = "Não especificado";
+        if (!cupcake.cor_cobertura) cupcake.cor_cobertura = "Não especificado";
+
+        cupcakesMap.set(i, { ...cupcake, quantidade: 1 });
+      }
+
+      pedido.cupcakes = Array.from(cupcakesMap.values());
+
       delete pedido.ingredientes;
       pedidosFinal.push(pedido);
     }
